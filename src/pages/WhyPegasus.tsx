@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import { PegasusAnimation } from '@/components/PegasusAnimation';
 import { Navigation } from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,7 +13,8 @@ const WhyPegasus = () => {
   const { connect } = useWallet();
 
   return (
-    <div className="min-h-screen relative overflow-hidden">
+    <div className="min-h-screen relative overflow-hidden bg-transparent">
+      <PegasusAnimation />
       <Navigation />
 
       {/* Hero Section */}

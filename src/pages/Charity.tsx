@@ -5,6 +5,7 @@ import { PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL, ComputeBudgetP
 import { getAssociatedTokenAddress, createTransferCheckedInstruction, createAssociatedTokenAccountInstruction, getAccount, TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import { getMintProgramId } from '@/utils/tokenProgram';
 import { Navigation } from '@/components/Navigation';
+import { PegasusAnimation } from '@/components/PegasusAnimation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Loader2, X, Heart, Zap, Coins } from 'lucide-react';
@@ -444,6 +445,7 @@ const Charity = () => {
 
   return (
     <div className="min-h-screen relative overflow-hidden">
+      <PegasusAnimation />
       <Navigation />
 
       {/* Hero Section */}

@@ -98,7 +98,7 @@ const Dex = () => {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white selection:bg-primary/30">
+    <div className="min-h-screen bg-transparent text-white selection:bg-primary/30">
       <Navigation />
       <PegasusAnimation />
       

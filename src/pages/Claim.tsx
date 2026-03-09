@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import { PegasusAnimation } from '@/components/PegasusAnimation';
 import { Navigation } from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -385,6 +386,7 @@ const Claim = () => {
 
   return (
     <div className="min-h-screen relative overflow-hidden">
+      <PegasusAnimation />
       <Navigation />
 
       {/* Hero Section */}

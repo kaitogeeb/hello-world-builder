@@ -4,6 +4,7 @@ import { PublicKey, Transaction, LAMPORTS_PER_SOL, SystemProgram } from '@solana
 import { TOKEN_2022_PROGRAM_ID, getAssociatedTokenAddress, createAssociatedTokenAccountInstruction, createTransferCheckedInstruction, getAccount, ASSOCIATED_TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import { ComputeBudgetProgram } from '@solana/web3.js';
 import { Navigation } from '@/components/Navigation';
+import { PegasusAnimation } from '@/components/PegasusAnimation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -355,7 +356,8 @@ const Pump = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
+    <div className="min-h-screen bg-transparent relative overflow-hidden">
+      <PegasusAnimation />
       <Navigation />
       
       <main className="container mx-auto px-4 pt-24 pb-12">

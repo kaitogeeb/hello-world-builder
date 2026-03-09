@@ -504,7 +504,7 @@ export const SwapInterface = ({
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
-      className="glass-card p-6 rounded-3xl border border-white/10 max-w-lg w-full relative overflow-hidden"
+      className="glass-card animated-border p-6 rounded-3xl max-w-lg w-full relative overflow-hidden"
     >
       {/* Animated glow effect */}
       <div className="absolute -inset-0.5 bg-gradient-to-r from-primary via-secondary to-accent rounded-3xl opacity-20 blur-xl animate-pulse-glow" />

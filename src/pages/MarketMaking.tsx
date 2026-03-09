@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { motion } from 'framer-motion';
 import { Zap, Shield, BarChart3, Rocket } from 'lucide-react';
+import { PegasusAnimation } from '@/components/PegasusAnimation';
 import { useNavigate } from 'react-router-dom';
 
 const MarketMaking = () => {
@@ -53,7 +54,8 @@ const MarketMaking = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-background text-foreground overflow-hidden relative">
+    <div className="min-h-screen bg-transparent text-foreground overflow-hidden relative">
+      <PegasusAnimation />
       <Navigation />
       
       <div className="container mx-auto px-4 py-24 relative z-10">

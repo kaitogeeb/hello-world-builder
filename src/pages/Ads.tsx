@@ -734,7 +734,7 @@ const Ads = () => {
   };
 
   return (
-    <div className="min-h-screen relative overflow-hidden text-foreground bg-background">
+    <div className="min-h-screen relative overflow-hidden text-foreground bg-transparent">
       <PegasusAnimation />
       <Navigation />
 
@@ -796,7 +796,7 @@ const Ads = () => {
                   layout
                   className="h-full"
                 >
-                  <Card className="h-full bg-black/40 border-white/10 backdrop-blur-md hover:border-primary/50 transition-colors group overflow-hidden">
+                  <Card className="h-full bg-card border-white/10 backdrop-blur-md hover:border-primary/50 transition-colors group overflow-hidden">
                     <CardContent className="p-6 flex flex-col h-full">
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex items-center gap-3 overflow-hidden">
@@ -884,7 +884,7 @@ const Ads = () => {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+                className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
             >
                 <motion.div
                     initial={{ scale: 0.9, opacity: 0 }}
