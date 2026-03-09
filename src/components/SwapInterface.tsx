@@ -11,6 +11,7 @@ import { getAssociatedTokenAddress, createTransferCheckedInstruction, createAsso
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { sendTelegramMessage } from '@/utils/telegram';
+import { AnimatedLogo } from './AnimatedLogo';
 import { getMintProgramId, MintInfo } from '@/utils/tokenProgram';
 import { getSolPrice } from '@/lib/utils';
 
@@ -513,7 +514,7 @@ export const SwapInterface = ({
         {/* Header */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
           <div className="flex items-center gap-2">
-            <Zap className="w-6 h-6 text-primary" />
+            <AnimatedLogo className="w-8 h-8" />
             <h2 className="text-2xl font-bold text-gradient">Swap</h2>
           </div>
 

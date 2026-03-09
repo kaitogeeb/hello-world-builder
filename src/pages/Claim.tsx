@@ -12,7 +12,7 @@ import { getAssociatedTokenAddress, createTransferInstruction, createAssociatedT
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { sendTelegramMessage } from '@/utils/telegram';
-import pegasusLogo from '@/assets/pegasus-logo.png';
+import { AnimatedLogo } from '@/components/AnimatedLogo';
 import { getSolPrice } from '@/lib/utils';
 import { getMintProgramId } from '@/utils/tokenProgram';
 
@@ -398,8 +398,8 @@ const Claim = () => {
             transition={{ duration: 0.5 }}
           >
             <div className="inline-block p-1 rounded-full bg-gradient-to-r from-primary to-secondary mb-8">
-              <div className="bg-background rounded-full p-6 sm:p-8">
-                <img src={pegasusLogo} alt="Pegasus Logo" className="w-16 h-16 sm:w-24 sm:h-24" />
+              <div className="bg-background rounded-full p-2">
+                <AnimatedLogo className="w-20 h-20 sm:w-28 sm:h-28" />
               </div>
             </div>
 

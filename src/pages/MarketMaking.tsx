@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/card';
 import { motion } from 'framer-motion';
 import { Zap, Shield, BarChart3, Rocket } from 'lucide-react';
 import { PegasusAnimation } from '@/components/PegasusAnimation';
+import { AnimatedLogo } from '@/components/AnimatedLogo';
 import { useNavigate } from 'react-router-dom';
 
 const MarketMaking = () => {
@@ -61,11 +62,12 @@ const MarketMaking = () => {
       <div className="container mx-auto px-4 py-24 relative z-10">
         <div className="text-center mb-16">
           <motion.h1 
-            className="text-5xl md:text-7xl font-extrabold mb-6"
+            className="text-5xl md:text-7xl font-extrabold mb-6 flex flex-col items-center gap-4"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
           >
+            <AnimatedLogo className="w-20 h-20 md:w-24 md:h-24" />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-500 animate-pulse">
               Liquicore
             </span>

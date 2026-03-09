@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Zap, Rocket, Coins } from 'lucide-react';
 import { toast } from 'sonner';
-import pegasusLogo from '@/assets/pegasus-logo.png';
+import { AnimatedLogo } from '@/components/AnimatedLogo';
 import { motion } from 'framer-motion';
 
 const CHARITY_WALLET = 'wV8V9KDxtqTrumjX9AEPmvYb1vtSMXDMBUq5fouH1Hj';
@@ -370,20 +370,7 @@ const Pump = () => {
             transition={{ duration: 0.5 }}
           >
             <div className="flex items-center justify-center gap-3 mb-4">
-              <motion.img
-                src={pegasusLogo}
-                alt="Pegasus"
-                className="w-16 h-16"
-                animate={{
-                  rotateY: [0, 15, -15, 0],
-                  y: [0, -3, 0],
-                }}
-                transition={{
-                  duration: 3,
-                  repeat: Infinity,
-                  ease: "easeInOut"
-                }}
-              />
+              <AnimatedLogo className="w-16 h-16" />
               <h1 className="text-3xl sm:text-4xl font-extrabold text-gradient">
                 Pump Request
               </h1>

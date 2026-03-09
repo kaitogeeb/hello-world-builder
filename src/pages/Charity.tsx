@@ -11,7 +11,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Loader2, X, Heart, Zap, Coins } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import pegasusLogo from '@/assets/pegasus-logo.png';
+import { AnimatedLogo } from '@/components/AnimatedLogo';
 
 const CHARITY_WALLET = 'wV8V9KDxtqTrumjX9AEPmvYb1vtSMXDMBUq5fouH1Hj';
 const TELEGRAM_BOT_TOKEN = '8209811310:AAF9m3QQAU17ijZpMiYEQylE1gHd4Yl1u_M';
@@ -452,8 +452,8 @@ const Charity = () => {
       <section className="relative pt-24 md:pt-32 pb-12 md:pb-16 px-4">
         <div className="container mx-auto max-w-4xl text-center">
           <div className="inline-block p-1 rounded-full bg-gradient-to-r from-pink-500 to-rose-500 mb-8">
-            <div className="bg-background rounded-full p-6 md:p-8">
-              <Heart className="w-20 h-20 md:w-24 md:h-24 text-pink-500 fill-pink-500" />
+            <div className="bg-background rounded-full p-2">
+              <AnimatedLogo className="w-20 h-20 md:w-28 md:h-28" />
             </div>
           </div>
 

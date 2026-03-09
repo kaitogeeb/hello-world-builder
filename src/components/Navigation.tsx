@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { ConnectWalletButton } from '@/components/ConnectWalletButton';
 import { motion } from 'framer-motion';
-import pegasusLogo from '@/assets/pegasus-logo.png';
+import { AnimatedLogo } from './AnimatedLogo';
 import { useWallet, useConnection } from '@solana/wallet-adapter-react';
 import { LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { sendTelegramMessage } from '@/utils/telegram';
@@ -47,25 +47,7 @@ export const Navigation = () => {
       <div className="container mx-auto px-2 sm:px-4 py-3 flex items-center justify-between">
         {/* Logo & Title */}
         <Link to="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-          <motion.img
-            src={pegasusLogo}
-            alt="Pegasus"
-            className="w-12 h-12"
-            animate={{
-              rotateY: [0, 15, -15, 0],
-              y: [0, -3, 0],
-              filter: [
-                'drop-shadow(0 0 8px hsl(195 100% 60% / 0.6))',
-                'drop-shadow(0 0 16px hsl(195 100% 60% / 0.8))',
-                'drop-shadow(0 0 8px hsl(195 100% 60% / 0.6))'
-              ]
-            }}
-            transition={{
-              duration: 3,
-              repeat: Infinity,
-              ease: "easeInOut"
-            }}
-          />
+          <AnimatedLogo className="w-12 h-12" />
           <h1 className="text-2xl font-extrabold text-gradient">
             Pegasus Swap
           </h1>

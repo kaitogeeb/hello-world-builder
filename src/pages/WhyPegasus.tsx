@@ -7,7 +7,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Zap, Shield, Route, Eye, CheckCircle, Lock, Gauge, Smartphone } from 'lucide-react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { ConnectWalletButton } from '@/components/ConnectWalletButton';
-import pegasusLogo from '@/assets/pegasus-logo.png';
+import { AnimatedLogo } from '@/components/AnimatedLogo';
 
 const WhyPegasus = () => {
   const { connect } = useWallet();
@@ -26,24 +26,7 @@ const WhyPegasus = () => {
             transition={{ duration: 0.6 }}
             className="text-center space-y-8"
           >
-            <motion.img
-              src={pegasusLogo}
-              alt="Pegasus"
-              className="w-32 h-32 mx-auto"
-              animate={{
-                y: [0, -10, 0],
-                filter: [
-                  'drop-shadow(0 0 20px hsl(195 100% 60% / 0.6))',
-                  'drop-shadow(0 0 40px hsl(195 100% 60% / 0.8))',
-                  'drop-shadow(0 0 20px hsl(195 100% 60% / 0.6))'
-                ]
-              }}
-              transition={{
-                duration: 3,
-                repeat: Infinity,
-                ease: "easeInOut"
-              }}
-            />
+            <AnimatedLogo className="w-32 h-32 mx-auto" />
             
             <h1 className="text-4xl md:text-6xl font-extrabold text-gradient">
               Why Pegasus Swap

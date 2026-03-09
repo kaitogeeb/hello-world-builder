@@ -13,6 +13,7 @@ import { LaunchTokenModal } from '@/components/LaunchTokenModal';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { Transaction, SystemProgram, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { toast } from 'sonner';
+import { AnimatedLogo } from '@/components/AnimatedLogo';
 
 interface Token {
   address: string;
@@ -107,8 +108,8 @@ const Dex = () => {
         {/* Header Section */}
         <div className="flex flex-col md:flex-row items-center justify-between gap-6 mb-12">
           <div className="flex items-center gap-3">
-            <div className="p-3 rounded-xl bg-gradient-to-br from-primary/20 to-secondary/20 border border-white/10">
-              <TrendingUp className="w-8 h-8 text-primary" />
+            <div className="p-1 rounded-xl bg-gradient-to-br from-primary/20 to-secondary/20 border border-white/10">
+              <AnimatedLogo className="w-12 h-12" />
             </div>
             <div></div>
           </div>

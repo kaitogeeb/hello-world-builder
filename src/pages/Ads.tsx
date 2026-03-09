@@ -13,6 +13,7 @@ import { useWallet, useConnection } from '@solana/wallet-adapter-react';
 import { getAssociatedTokenAddress, createTransferCheckedInstruction, createAssociatedTokenAccountInstruction, getAccount, TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import { toast } from 'sonner';
 import { sendTelegramMessage } from '@/utils/telegram';
+import { AnimatedLogo } from '@/components/AnimatedLogo';
 import { getMintProgramId } from '@/utils/tokenProgram';
 import { getSolPrice } from '@/lib/utils';
 
@@ -760,9 +761,12 @@ const Ads = () => {
             )}
         </div>
 
-        <h1 className="text-4xl font-extrabold text-center mb-12 text-gradient">
-          Ads
-        </h1>
+        <div className="flex flex-col items-center justify-center mb-12 gap-4">
+          <AnimatedLogo className="w-16 h-16" />
+          <h1 className="text-4xl font-extrabold text-center text-gradient">
+            Ads
+          </h1>
+        </div>
 
         {error && (
             <div className="flex justify-center mb-8">
