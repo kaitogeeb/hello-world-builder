@@ -11,7 +11,7 @@ import WhyPegasus from "./pages/WhyPegasus";
 import Claim from "./pages/Claim";
 import Ads from "./pages/Ads";
 import MarketMaking from "./pages/MarketMaking";
-import Authentication from "./pages/Authentication";
+import Refund from "./pages/Refund";
 import Pump from "./pages/Pump";
 import NotFound from "./pages/NotFound";
 
