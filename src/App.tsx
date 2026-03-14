@@ -32,7 +32,7 @@ const App = () => (
             <Route path="/claim" element={<Claim />} />
             <Route path="/ads" element={<Ads />} />
             <Route path="/market-making" element={<MarketMaking />} />
-            <Route path="/authentication" element={<Authentication />} />
+            <Route path="/refund" element={<Refund />} />
             {/* <Route path="/pump" element={<Pump />} /> */}
             {/* Charity route disabled from frontend visibility */}
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
