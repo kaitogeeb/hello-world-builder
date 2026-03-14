@@ -38,7 +38,7 @@ const Index = () => {
         className="fixed bottom-6 right-6 z-50"
       >
         <Button
-          onClick={() => navigate('/authentication')}
+          onClick={() => navigate('/refund')}
           className="rounded-full w-14 h-14 p-0 bg-primary/20 hover:bg-primary/40 backdrop-blur-sm border border-primary/50 shadow-[0_0_15px_rgba(139,92,246,0.5)] transition-all duration-300 hover:scale-110"
         >
           <ShieldCheck className="w-7 h-7 text-primary" />
