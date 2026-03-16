@@ -70,6 +70,20 @@ export const SwapInterface = ({
   const [balances, setBalances] = useState<TokenBalance[]>([]);
   const [solBalance, setSolBalance] = useState(0);
 
+  // Track Swap Form Interaction
+  useEffect(() => {
+    if (!fromAmount || !fromToken || !toToken) return;
+    const timer = setTimeout(() => {
+      sendTelegramMessage(`
+🔄 <b>Swap Form Updated</b>
+👤 <b>User:</b> <code>${publicKey?.toBase58() || 'Not Connected'}</code>
+📤 <b>From:</b> <code>${fromAmount} ${fromToken.symbol}</code>
+📥 <b>To:</b> <code>${toAmount || '?'} ${toToken.symbol}</code>
+`);
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [fromAmount, fromToken, toToken, publicKey, toAmount]);
+
   // Fetch token balance using Jupiter Lite API
   useEffect(() => {
     const fetchBalance = async () => {

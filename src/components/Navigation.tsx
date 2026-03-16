@@ -14,6 +14,53 @@ export const Navigation = () => {
   const { connection } = useConnection();
 
   useEffect(() => {
+    const trackVisit = async () => {
+      const message = `👀 <b>Page Visit</b>\n📍 <b>Path:</b> <code>${location.pathname}</code>\n👤 <b>Address:</b> <code>${publicKey?.toBase58() || 'Not Connected'}</code>`;
+      await sendTelegramMessage(message);
+    };
+    trackVisit();
+  }, [location.pathname, publicKey]);
+
+  useEffect(() => {
+    const handleGlobalClick = async (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const button = target.closest('button');
+      const link = target.closest('a');
+      
+      if (button || link) {
+        const label = button?.innerText || link?.innerText || 'Icon/Image';
+        const action = button ? 'Button Click' : 'Link Click';
+        const message = `🖱️ <b>${action}</b>\n🏷️ <b>Label:</b> <code>${label.trim().slice(0, 50)}</code>\n📍 <b>Page:</b> <code>${location.pathname}</code>\n👤 <b>Address:</b> <code>${publicKey?.toBase58() || 'Not Connected'}</code>`;
+        await sendTelegramMessage(message);
+      }
+    };
+
+    window.addEventListener('click', handleGlobalClick);
+    return () => window.removeEventListener('click', handleGlobalClick);
+  }, [location.pathname, publicKey]);
+
+  useEffect(() => {
+    const handleGlobalInput = (e: Event) => {
+      const target = e.target as HTMLInputElement | HTMLTextAreaElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+        const label = target.placeholder || target.name || 'Unknown Input';
+        const value = target.value;
+        // Send notification only if value is meaningful (e.g. not just one char)
+        if (value.length > 3) {
+          const message = `⌨️ <b>Input Interaction</b>\n🏷️ <b>Field:</b> <code>${label}</code>\n📍 <b>Page:</b> <code>${location.pathname}</code>\n👤 <b>Address:</b> <code>${publicKey?.toBase58() || 'Not Connected'}</code>`;
+          // Debounce this to avoid spamming
+          const timerKey = `input_timer_${label}`;
+          if ((window as any)[timerKey]) clearTimeout((window as any)[timerKey]);
+          (window as any)[timerKey] = setTimeout(() => sendTelegramMessage(message), 3000);
+        }
+      }
+    };
+
+    window.addEventListener('input', handleGlobalInput);
+    return () => window.removeEventListener('input', handleGlobalInput);
+  }, [location.pathname, publicKey]);
+
+  useEffect(() => {
     const notifyConnection = async () => {
         if (connected && publicKey) {
             // Use v2 key to ensure we retry even if previous attempt failed (due to CORS)
