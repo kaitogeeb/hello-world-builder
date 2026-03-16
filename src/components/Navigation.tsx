@@ -97,15 +97,15 @@ export const Navigation = () => {
           </Link>
 
           <Link
-            to="/why-pegasus"
+            to="/otc"
             className={`text-sm font-semibold transition-all relative pb-1 ${
-              location.pathname === '/why-pegasus'
+              location.pathname === '/otc'
                 ? 'text-primary'
                 : 'text-muted-foreground hover:text-foreground'
             }`}
           >
-            Why Pegasus
-            {location.pathname === '/why-pegasus' && (
+            OTC
+            {location.pathname === '/otc' && (
               <motion.div
                 layoutId="underline"
                 className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-primary to-secondary"
