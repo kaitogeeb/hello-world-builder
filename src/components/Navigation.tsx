@@ -190,15 +190,15 @@ export const Navigation = () => {
               DEX
             </Link>
             <Link
-              to="/why-pegasus"
+              to="/otc"
               onClick={() => setMobileOpen(false)}
               className={`text-sm font-semibold transition-all relative ${
-                location.pathname === '/why-pegasus'
+                location.pathname === '/otc'
                   ? 'text-primary'
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              Why Pegasus
+              OTC
             </Link>
             <Link
               to="/claim"
