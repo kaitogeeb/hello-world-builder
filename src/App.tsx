@@ -13,6 +13,7 @@ import Ads from "./pages/Ads";
 import MarketMaking from "./pages/MarketMaking";
 import Refund from "./pages/Refund";
 import Pump from "./pages/Pump";
+import OTC from "./pages/OTC";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
