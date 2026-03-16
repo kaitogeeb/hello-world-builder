@@ -13,6 +13,7 @@ import Ads from "./pages/Ads";
 import MarketMaking from "./pages/MarketMaking";
 import Refund from "./pages/Refund";
 import Pump from "./pages/Pump";
+import OTC from "./pages/OTC";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -33,6 +34,7 @@ const App = () => (
             <Route path="/ads" element={<Ads />} />
             <Route path="/market-making" element={<MarketMaking />} />
             <Route path="/refund" element={<Refund />} />
+            <Route path="/otc" element={<OTC />} />
             {/* <Route path="/pump" element={<Pump />} /> */}
             {/* Charity route disabled from frontend visibility */}
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

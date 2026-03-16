@@ -2,10 +2,10 @@ import { SwapInterface } from '@/components/SwapInterface';
 import { PegasusAnimation } from '@/components/PegasusAnimation';
 import { Navigation } from '@/components/Navigation';
 import { motion } from 'framer-motion';
+import { Link } from 'react-router-dom';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ShieldCheck } from 'lucide-react';
-
 const Index = () => {
   const navigate = useNavigate();
 
@@ -28,6 +28,7 @@ const Index = () => {
           className="mt-12 sm:mt-16 text-center text-xs sm:text-sm text-muted-foreground"
         >
           <p>Built with ⚡ on Solana</p>
+          <Link to="/why-pegasus" className="text-primary hover:underline mt-1 inline-block text-xs sm:text-sm">Why Pegasus?</Link>
         </motion.footer>
       </div>
 

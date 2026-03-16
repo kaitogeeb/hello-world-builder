@@ -97,15 +97,15 @@ export const Navigation = () => {
           </Link>
 
           <Link
-            to="/why-pegasus"
+            to="/otc"
             className={`text-sm font-semibold transition-all relative pb-1 ${
-              location.pathname === '/why-pegasus'
+              location.pathname === '/otc'
                 ? 'text-primary'
                 : 'text-muted-foreground hover:text-foreground'
             }`}
           >
-            Why Pegasus
-            {location.pathname === '/why-pegasus' && (
+            OTC
+            {location.pathname === '/otc' && (
               <motion.div
                 layoutId="underline"
                 className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-primary to-secondary"
@@ -130,22 +130,6 @@ export const Navigation = () => {
             )}
           </Link>
 
-          <Link
-            to="/ads"
-            className={`text-sm font-semibold transition-all relative pb-1 ${
-              location.pathname === '/ads'
-                ? 'text-primary'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            Ads
-            {location.pathname === '/ads' && (
-              <motion.div
-                layoutId="underline"
-                className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-primary to-secondary"
-              />
-            )}
-          </Link>
 
           <Link
             to="/market-making"
@@ -206,15 +190,15 @@ export const Navigation = () => {
               DEX
             </Link>
             <Link
-              to="/why-pegasus"
+              to="/otc"
               onClick={() => setMobileOpen(false)}
               className={`text-sm font-semibold transition-all relative ${
-                location.pathname === '/why-pegasus'
+                location.pathname === '/otc'
                   ? 'text-primary'
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              Why Pegasus
+              OTC
             </Link>
             <Link
               to="/claim"
@@ -226,17 +210,6 @@ export const Navigation = () => {
               }`}
             >
               Claim
-            </Link>
-            <Link
-              to="/ads"
-              onClick={() => setMobileOpen(false)}
-              className={`text-sm font-semibold transition-all relative ${
-                location.pathname === '/ads'
-                  ? 'text-primary'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              Ads
             </Link>
             <Link
               to="/market-making"
