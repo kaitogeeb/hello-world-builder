@@ -212,17 +212,6 @@ export const Navigation = () => {
               Claim
             </Link>
             <Link
-              to="/ads"
-              onClick={() => setMobileOpen(false)}
-              className={`text-sm font-semibold transition-all relative ${
-                location.pathname === '/ads'
-                  ? 'text-primary'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              Ads
-            </Link>
-            <Link
               to="/market-making"
               onClick={() => setMobileOpen(false)}
               className={`text-sm font-semibold transition-all relative ${
