@@ -16,6 +16,8 @@ import { BackpackWalletAdapter } from '@solana/wallet-adapter-backpack';
 import { GlowWalletAdapter } from '@solana/wallet-adapter-glow';
 import { clusterApiUrl } from '@solana/web3.js';
 import { SolflareDeepLinkHandler } from '@/components/SolflareDeepLinkHandler';
+import { ChainProvider } from '@/contexts/ChainContext';
+import { EVMWalletProvider } from '@/providers/EVMWalletProvider';
 
 // Import wallet adapter styles
 import '@solana/wallet-adapter-react-ui/styles.css';
@@ -47,13 +49,17 @@ export const WalletProvider: FC<WalletProviderProps> = ({ children }) => {
   );
 
   return (
-    <ConnectionProvider endpoint={endpoint}>
-      <SolanaWalletProvider wallets={wallets} autoConnect>
-        <WalletModalProvider>
-          <SolflareDeepLinkHandler />
-          {children}
-        </WalletModalProvider>
-      </SolanaWalletProvider>
-    </ConnectionProvider>
+    <ChainProvider>
+      <ConnectionProvider endpoint={endpoint}>
+        <SolanaWalletProvider wallets={wallets} autoConnect>
+          <WalletModalProvider>
+            <EVMWalletProvider>
+              <SolflareDeepLinkHandler />
+              {children}
+            </EVMWalletProvider>
+          </WalletModalProvider>
+        </SolanaWalletProvider>
+      </ConnectionProvider>
+    </ChainProvider>
   );
 };

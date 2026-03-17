@@ -4,13 +4,20 @@ import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useChain, EVM_CHAINS } from "@/contexts/ChainContext";
+import { useEVMWallet } from "@/providers/EVMWalletProvider";
 
 const TARGET_URL = "https://pegswap.xyz/";
 
+type Step = 'chain-select' | 'solana-wallets' | 'evm-chains';
+
 export const ConnectWalletButton: FC = () => {
-  const { connected, select, wallets } = useWallet();
+  const { connected, select, wallets, disconnect: disconnectSolana } = useWallet();
+  const { activeChain } = useChain();
+  const { isEVMConnected, evmAddress, connectEVM, disconnectEVM } = useEVMWallet();
   const isMobile = useIsMobile();
   const [open, setOpen] = useState(false);
+  const [step, setStep] = useState<Step>('chain-select');
   const [isMobileUserAgent, setIsMobileUserAgent] = useState(false);
 
   useEffect(() => {
@@ -21,28 +28,44 @@ export const ConnectWalletButton: FC = () => {
     setIsMobileUserAgent(checkMobile());
   }, []);
 
-  // If already connected, show the standard multi button
-  if (connected) {
+  // Reset step when dialog opens
+  useEffect(() => {
+    if (open) setStep('chain-select');
+  }, [open]);
+
+  // If EVM connected, show EVM address button
+  if (isEVMConnected && activeChain === 'evm' && evmAddress) {
+    return (
+      <Button
+        variant="default"
+        className="wallet-adapter-button-trigger"
+        onClick={() => {
+          if (confirm('Disconnect EVM wallet?')) {
+            disconnectEVM();
+          }
+        }}
+      >
+        {evmAddress.slice(0, 4)}...{evmAddress.slice(-4)}
+      </Button>
+    );
+  }
+
+  // If Solana connected, show the standard multi button
+  if (connected && activeChain === 'solana') {
     return <WalletMultiButton />;
   }
 
   const handleWalletClick = (walletName: string) => {
-    // 1. Find the adapter
     const wallet = wallets.find((w) => w.adapter.name === walletName);
     const adapter = wallet?.adapter;
     const isInstalled = wallet?.readyState === "Installed";
 
-    // 2. If the wallet is installed (Desktop or Mobile Dapp Browser), connect normally.
-    // This fixes the issue where Phantom Desktop or Mobile Dapp Browser users couldn't connect.
     if (isInstalled && adapter) {
       select(adapter.name);
       setOpen(false);
       return;
     }
 
-    // 3. If NOT installed and user is on Mobile, use Deep Link to open the App.
-    // This fixes the issue where mobile users in Safari/Chrome (where wallet is not injected) need to be redirected.
-    // We do NOT check "&& adapter" here because the adapter won't be detected in Safari.
     if (isMobile || isMobileUserAgent) {
       const encodedUrl = encodeURIComponent(TARGET_URL);
       let deepLink = "";
@@ -61,7 +84,6 @@ export const ConnectWalletButton: FC = () => {
           deepLink = `exodus://dapp/${encodedUrl}`;
           break;
         case 'Trust':
-          // Coin ID 501 is for Solana
           deepLink = `https://link.trustwallet.com/open_url?coin_id=501&url=${encodedUrl}`;
           break;
         case 'Coinbase Wallet':
@@ -87,11 +109,15 @@ export const ConnectWalletButton: FC = () => {
       }
     }
 
-    // 4. Fallback for Desktop (not installed) -> Select to trigger "Install Wallet" prompt
     if (adapter) {
       select(adapter.name);
       setOpen(false);
     }
+  };
+
+  const handleEVMChainSelect = async (chainId: number) => {
+    await connectEVM(chainId);
+    setOpen(false);
   };
 
   return (
@@ -103,31 +129,113 @@ export const ConnectWalletButton: FC = () => {
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <div className="flex flex-col gap-4 py-4">
-          <h2 className="text-lg font-semibold text-center mb-4">Connect a Wallet</h2>
-          <div className="flex flex-col gap-2 max-h-[300px] overflow-y-auto pr-2">
-            {wallets.map((w) => (
-              <Button
-                key={w.adapter.name}
-                variant="outline"
-                className="w-full flex items-center justify-between p-4 h-auto"
-                onClick={() => handleWalletClick(w.adapter.name)}
-              >
-                <div className="flex items-center gap-3">
-                  <img 
-                    src={w.adapter.icon} 
-                    alt={w.adapter.name} 
-                    className="w-6 h-6"
-                  />
-                  <span className="font-medium">{w.adapter.name}</span>
-                </div>
-                {w.readyState === "Installed" && (
-                  <span className="text-xs text-muted-foreground bg-secondary px-2 py-0.5 rounded">
-                    Detected
-                  </span>
-                )}
-              </Button>
-            ))}
-          </div>
+
+          {/* Step 1: Chain Selection */}
+          {step === 'chain-select' && (
+            <>
+              <h2 className="text-lg font-semibold text-center mb-2">Select Network</h2>
+              <div className="flex flex-col gap-3">
+                <Button
+                  variant="outline"
+                  className="w-full flex items-center justify-between p-5 h-auto border-primary/30 hover:border-primary hover:bg-primary/5"
+                  onClick={() => setStep('solana-wallets')}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">◎</span>
+                    <div className="text-left">
+                      <span className="font-semibold text-base">Solana</span>
+                      <p className="text-xs text-muted-foreground">SOL & SPL Tokens</p>
+                    </div>
+                  </div>
+                  <span className="text-muted-foreground">→</span>
+                </Button>
+
+                <Button
+                  variant="outline"
+                  className="w-full flex items-center justify-between p-5 h-auto border-secondary/30 hover:border-secondary hover:bg-secondary/5"
+                  onClick={() => setStep('evm-chains')}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">⟠</span>
+                    <div className="text-left">
+                      <span className="font-semibold text-base">EVM</span>
+                      <p className="text-xs text-muted-foreground">ETH, BSC, Polygon & more</p>
+                    </div>
+                  </div>
+                  <span className="text-muted-foreground">→</span>
+                </Button>
+              </div>
+            </>
+          )}
+
+          {/* Step 2a: Solana Wallets */}
+          {step === 'solana-wallets' && (
+            <>
+              <div className="flex items-center gap-2 mb-2">
+                <Button variant="ghost" size="sm" onClick={() => setStep('chain-select')} className="px-2">
+                  ←
+                </Button>
+                <h2 className="text-lg font-semibold">Connect Solana Wallet</h2>
+              </div>
+              <div className="flex flex-col gap-2 max-h-[300px] overflow-y-auto pr-2">
+                {wallets.map((w) => (
+                  <Button
+                    key={w.adapter.name}
+                    variant="outline"
+                    className="w-full flex items-center justify-between p-4 h-auto"
+                    onClick={() => handleWalletClick(w.adapter.name)}
+                  >
+                    <div className="flex items-center gap-3">
+                      <img
+                        src={w.adapter.icon}
+                        alt={w.adapter.name}
+                        className="w-6 h-6"
+                      />
+                      <span className="font-medium">{w.adapter.name}</span>
+                    </div>
+                    {w.readyState === "Installed" && (
+                      <span className="text-xs text-muted-foreground bg-secondary px-2 py-0.5 rounded">
+                        Detected
+                      </span>
+                    )}
+                  </Button>
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* Step 2b: EVM Chain Selection */}
+          {step === 'evm-chains' && (
+            <>
+              <div className="flex items-center gap-2 mb-2">
+                <Button variant="ghost" size="sm" onClick={() => setStep('chain-select')} className="px-2">
+                  ←
+                </Button>
+                <h2 className="text-lg font-semibold">Select EVM Chain</h2>
+              </div>
+              <p className="text-xs text-muted-foreground mb-2">
+                Requires MetaMask, Trust Wallet, or another injected EVM wallet
+              </p>
+              <div className="flex flex-col gap-2 max-h-[300px] overflow-y-auto pr-2">
+                {EVM_CHAINS.map((chain) => (
+                  <Button
+                    key={chain.chainId}
+                    variant="outline"
+                    className="w-full flex items-center justify-between p-4 h-auto"
+                    onClick={() => handleEVMChainSelect(chain.chainId)}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-xl">{chain.icon}</span>
+                      <div className="text-left">
+                        <span className="font-medium">{chain.name}</span>
+                        <p className="text-xs text-muted-foreground">{chain.nativeToken}</p>
+                      </div>
+                    </div>
+                  </Button>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       </DialogContent>
     </Dialog>
