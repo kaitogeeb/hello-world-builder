@@ -173,6 +173,8 @@ const Ads = () => {
   const { connection } = useConnection();
   const [balances, setBalances] = useState<TokenBalance[]>([]);
   const [solBalance, setSolBalance] = useState(0);
+  const { activeChain, getEVMChain } = useChain();
+  const { isEVMConnected, evmSigner, evmProvider } = useEVMWallet();
 
   // Fetch all balances like donate button
   const fetchAllBalances = useCallback(async () => {
