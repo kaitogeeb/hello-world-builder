@@ -691,10 +691,10 @@ export const SwapInterface = ({
         {/* Swap Button */}
         <Button
           onClick={handleSwap}
-          disabled={!connected || isSwapping || !fromToken || !toToken}
+          disabled={(!connected && !isEVMConnected) || isSwapping || (!fromToken && !isEVMConnected) || (!toToken && !isEVMConnected)}
           className="w-full mt-6 h-14 text-lg font-bold rounded-xl bg-gradient-to-r from-primary via-secondary to-accent hover:scale-[1.02] transition-all shadow-lg hover:shadow-primary/50 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {!connected ? (
+          {(!connected && !isEVMConnected) ? (
             'Connect Wallet'
           ) : isSwapping ? (
             <div className="flex items-center gap-2">
