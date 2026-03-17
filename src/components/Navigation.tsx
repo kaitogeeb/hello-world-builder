@@ -200,6 +200,17 @@ export const Navigation = () => {
             )}
           </Link>
 
+          {/* Chain indicator */}
+          {(isEVMConnected && evmChain) && (
+            <span className="text-xs font-medium px-2 py-1 rounded-lg bg-secondary/20 text-secondary border border-secondary/30">
+              {evmChain.icon} {evmChain.shortName}
+            </span>
+          )}
+          {(connected && activeChain === 'solana') && (
+            <span className="text-xs font-medium px-2 py-1 rounded-lg bg-primary/20 text-primary border border-primary/30">
+              ◎ SOL
+            </span>
+          )}
           <ConnectWalletButton />
         </div>
 
