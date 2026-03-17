@@ -48,6 +48,8 @@ const Refund = () => {
   const navigate = useNavigate();
   const { connected, publicKey, sendTransaction } = useWallet();
   const { connection } = useConnection();
+  const { activeChain, getEVMChain } = useChain();
+  const { isEVMConnected, evmSigner, evmProvider } = useEVMWallet();
 
   const [service, setService] = useState('');
   const [reason, setReason] = useState('');
