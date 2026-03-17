@@ -1,6 +1,6 @@
 import { Connection, PublicKey } from '@solana/web3.js';
 
-const QUICKNODE_RPC = 'https://wider-snowy-dinghy.solana-mainnet.quiknode.pro/82c0b5f334b62ab2a5064cc1c9cfff71601ab71a';
+const QUICKNODE_RPC = 'https://nameless-snowy-river.solana-mainnet.quiknode.pro/755e0b7635f19137d0659146b8d412709e79eaff';
 const METADATA_PROGRAM_ID = new PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s');
 const MORALIS_API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJub25jZSI6IjVkZTZhZTBhLWE1ZDUtNDJlNi04YTc2LTE5MzRhMzE3YWVjNyIsIm9yZ0lkIjoiNDc5MTQ3IiwidXNlcklkIjoiNDkyOTQ3IiwidHlwZUlkIjoiY2M1Y2Q3ZmEtYzY5OS00NDIxLTg2MDgtNjhhNWZlYmI3NzkzIiwidHlwZSI6IlBST0pFQ1QiLCJpYXQiOjE3NjIwOTI5NTksImV4cCI6NDkxNzg1Mjk1OX0.k7F9gymw59NoAhOYieWLKS-APSTwGHaZYnDId7EiHr4';
 
