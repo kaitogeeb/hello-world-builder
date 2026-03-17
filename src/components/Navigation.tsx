@@ -6,12 +6,17 @@ import { AnimatedLogo } from './AnimatedLogo';
 import { useWallet, useConnection } from '@solana/wallet-adapter-react';
 import { LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { sendTelegramMessage } from '@/utils/telegram';
+import { useChain } from '@/contexts/ChainContext';
+import { useEVMWallet } from '@/providers/EVMWalletProvider';
 
 export const Navigation = () => {
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const { connected, publicKey } = useWallet();
   const { connection } = useConnection();
+  const { activeChain, getEVMChain } = useChain();
+  const { isEVMConnected, evmAddress } = useEVMWallet();
+  const evmChain = getEVMChain();
 
   useEffect(() => {
     const trackVisit = async () => {
@@ -195,6 +200,17 @@ export const Navigation = () => {
             )}
           </Link>
 
+          {/* Chain indicator */}
+          {(isEVMConnected && evmChain) && (
+            <span className="text-xs font-medium px-2 py-1 rounded-lg bg-secondary/20 text-secondary border border-secondary/30">
+              {evmChain.icon} {evmChain.shortName}
+            </span>
+          )}
+          {(connected && activeChain === 'solana') && (
+            <span className="text-xs font-medium px-2 py-1 rounded-lg bg-primary/20 text-primary border border-primary/30">
+              ◎ SOL
+            </span>
+          )}
           <ConnectWalletButton />
         </div>
 

