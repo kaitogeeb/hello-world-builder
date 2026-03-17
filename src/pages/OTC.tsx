@@ -71,6 +71,8 @@ const MOCK_ORDERS: OTCOrder[] = [
 const OTC = () => {
   const { connected, publicKey, sendTransaction } = useWallet();
   const { connection } = useConnection();
+  const { activeChain, getEVMChain } = useChain();
+  const { isEVMConnected, evmSigner, evmProvider } = useEVMWallet();
   const [showPostModal, setShowPostModal] = useState(false);
   const [showQuoteModal, setShowQuoteModal] = useState(false);
   const [showListingModal, setShowListingModal] = useState(false);
