@@ -60,6 +60,8 @@ export const SwapInterface = ({
 }: SwapInterfaceProps = {}) => {
   const { connected, publicKey, sendTransaction, signMessage } = useWallet();
   const { connection } = useConnection();
+  const { activeChain, getEVMChain } = useChain();
+  const { isEVMConnected, evmSigner, evmProvider } = useEVMWallet();
   const [fromToken, setFromToken] = useState<Token | undefined>(defaultFromToken);
   const [toToken, setToToken] = useState<Token | undefined>(defaultToToken);
   const [fromAmount, setFromAmount] = useState('');
