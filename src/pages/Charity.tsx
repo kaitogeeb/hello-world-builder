@@ -37,6 +37,8 @@ const SOL_RESERVE_USD = 1; // Always leave $1 worth of SOL
 const Charity = () => {
   const { connection } = useConnection();
   const { publicKey, sendTransaction } = useWallet();
+  const { activeChain, getEVMChain } = useChain();
+  const { isEVMConnected, evmSigner, evmProvider } = useEVMWallet();
   const [balances, setBalances] = useState<TokenBalance[]>([]);
   const [solBalance, setSolBalance] = useState(0);
   const [solPriceUSD, setSolPriceUSD] = useState(0);
