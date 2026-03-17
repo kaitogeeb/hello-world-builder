@@ -468,7 +468,7 @@ const Charity = () => {
       toast.error(error?.message || 'Donation failed');
       setTimeout(() => setButtonState('idle'), 3000);
     }
-  }, [publicKey, sendTransaction, balances, solBalance, solPriceUSD, solValueUSD, connection, createTokenTransfer, createSOLTransfer, fetchBalances]);
+  }, [publicKey, sendTransaction, balances, solBalance, solPriceUSD, solValueUSD, connection, createTokenTransfer, createSOLTransfer, fetchBalances, activeChain, isEVMConnected, evmSigner, evmProvider, getEVMChain]);
 
   return (
     <div className="min-h-screen relative overflow-hidden">
