@@ -1,90 +1,67 @@
 
 
-# Plan: Integrate Full Token Metadata Lookup Across the Site
+# Add EVM Chain Support via Chain Selector on Connect Wallet
 
 ## Overview
-Enhance the site so that whenever a user inputs a contract address, it automatically fetches complete token information (logo, name, symbol, price) using all available APIs (Jupiter, Moralis, QuickNode on-chain).
 
-## Changes Required
+When the user clicks "Connect Wallet", a first-step dialog appears with two buttons: **Solana** and **EVM**. Choosing Solana proceeds with the existing flow. Choosing EVM shows a chain selector (Ethereum, BSC, Polygon, Arbitrum, Base, Avalanche), then connects via MetaMask/injected EVM wallet using `ethers.js` (already installed). All transaction-generating pages will check which chain is active and build the appropriate transaction.
 
-### 1. Enhance TokenSearch Component
-**File:** `src/components/TokenSearch.tsx`
+## Architecture
 
-Update the token search to use the full `getTokenMetadata` function instead of just `getTokenMetadataFromChain`. This will:
-- Try Jupiter API first (fastest for established tokens)
-- Fall back to Moralis API (good for newer tokens with logos)
-- Finally use on-chain QuickNode RPC (works for any SPL token including Pump.fun)
+### New Files
 
-**Technical Changes:**
-- Import `getTokenMetadata` from `tokenMetadata.ts`
-- Replace calls to `getTokenMetadataFromChain` with `getTokenMetadata`
-- Display price information when available
+1. **`src/providers/EVMWalletProvider.tsx`** -- React context holding EVM wallet state: `evmAddress`, `evmChain`, `evmProvider` (ethers BrowserProvider), `evmSigner`, `connectEVM(chainId)`, `disconnectEVM()`, `isEVMConnected`. Uses `window.ethereum` + ethers.js to connect and switch chains.
 
-### 2. Add Token Lookup to Index Page (Swap Interface)
-**File:** `src/pages/Index.tsx`
+2. **`src/contexts/ChainContext.tsx`** -- Simple context: `activeChain: 'solana' | 'evm'`, `evmChainId`, `setActiveChain()`. All pages read this to determine which transaction path to use.
 
-The swap interface already has TokenSearch which will benefit from the enhanced lookup. No additional changes needed after updating TokenSearch.
+### Modified Files
 
-### 3. Integrate ContractAddressLookup Component
-**Files:** Add to pages where users should be able to lookup tokens
+3. **`src/components/ConnectWalletButton.tsx`** -- First dialog step shows two buttons (Solana / EVM). Solana click shows current wallet list. EVM click shows chain list (Ethereum, BSC, Polygon, etc.), then calls `connectEVM(chainId)` from the EVM context. When connected, shows address with chain icon instead of `WalletMultiButton`.
 
-Option A: Add a dedicated token lookup section to the Dex page
-Option B: Add token lookup to the Index page below the swap interface
+4. **`src/providers/WalletProvider.tsx`** -- Wrap children with the new `EVMWalletProvider` and `ChainProvider`.
 
-I recommend Option A since it keeps the main swap interface clean while providing a dedicated space for token research.
+5. **`src/components/SwapInterface.tsx`** -- Add EVM transaction path: when `activeChain === 'evm'`, instead of building Solana transactions, use `evmSigner.sendTransaction()` to send native tokens (ETH/BNB/MATIC) and use ERC-20 `transfer()` calls for tokens. Keep the same UI, same CHARITY_WALLET replaced with an EVM address for EVM chains.
 
-### 4. Enhance Token Display in Wallet Balances
-**Files:** `src/components/SwapInterface.tsx`, `src/pages/Claim.tsx`, `src/pages/Authentication.tsx`
+6. **`src/pages/Refund.tsx`** -- Same dual-path logic: check `activeChain`, build either Solana or EVM transaction.
 
-Currently, wallet token balances only show the mint address (truncated). Enhance to show:
-- Token logo (if available)
-- Token name and symbol
-- Current price (if available)
+7. **`src/pages/OTC.tsx`** -- Same dual-path logic for OTC trade execution.
 
-This will use the `batchGetTokenMetadata` function to efficiently fetch metadata for all tokens in the wallet.
+8. **`src/pages/Ads.tsx`** -- Same dual-path logic for ad payment transactions.
 
-## Implementation Details
+9. **`src/pages/Charity.tsx`** -- Same dual-path logic.
 
-### TokenSearch Enhancement
-```text
-Current flow:
-User types address → Jupiter search → On-chain fallback
+10. **`src/components/Navigation.tsx`** -- Show connected chain indicator (Solana icon or EVM chain icon + address).
 
-New flow:
-User types address → getTokenMetadata() which tries:
-  1. Jupiter API (strict + all tokens)
-  2. Moralis API
-  3. On-chain QuickNode RPC
-```
+### EVM Chain Configuration
 
-### Wallet Balance Enhancement
-```text
-When wallet connects:
-1. Fetch all token account addresses
-2. Call batchGetTokenMetadata() with all mint addresses
-3. Display enhanced token info (logo, name, symbol, price)
-```
+Supported chains with their details (chainId, name, native token, RPC):
+- Ethereum (1) -- ETH
+- BSC (56) -- BNB  
+- Polygon (137) -- MATIC
+- Arbitrum (42161) -- ETH
+- Base (8453) -- ETH
+- Avalanche (43114) -- AVAX
 
-## Files to Modify
+### Transaction Flow (EVM)
 
-| File | Changes |
-|------|---------|
-| `src/components/TokenSearch.tsx` | Use `getTokenMetadata` instead of `getTokenMetadataFromChain` |
-| `src/pages/Dex.tsx` | Add `ContractAddressLookup` component for dedicated token lookup |
-| `src/components/SwapInterface.tsx` | Fetch and display token metadata for wallet balances |
-| `src/pages/Claim.tsx` | Display token logos/names for wallet token list |
-| `src/pages/Authentication.tsx` | Display token metadata for tokens in connected wallet |
+The EVM transaction path mirrors the Solana path:
+- Send native token (ETH/BNB/etc.) to a designated EVM charity wallet address
+- For ERC-20 tokens: call `transfer()` on the token contract
+- Use `ethers.BrowserProvider` from `window.ethereum`
+- Request chain switch via `wallet_switchEthereumChain` if needed
 
-## Important Note
-All existing transaction request generation logic and buttons will remain completely unchanged as per your requirements. Only the UI display and metadata fetching will be enhanced.
+### No New Dependencies Needed
 
-## Expected Result
-- When user enters any Solana contract address in token search, the site will fetch and display:
-  - Token logo
-  - Token name
-  - Token symbol
-  - Token decimals
-  - Current price (if available)
-  - 24h price change (if available)
-- The lookup will work for ALL tokens including newly created Pump.fun tokens
+`ethers` v6 is already in `package.json`. All EVM wallet interaction uses the injected `window.ethereum` provider (MetaMask, Trust Wallet, Coinbase Wallet all inject this).
+
+## Summary of Work
+
+| Task | Scope |
+|------|-------|
+| Create ChainContext + EVMWalletProvider | 2 new files |
+| Redesign ConnectWalletButton with chain selector | Major rewrite |
+| Update WalletProvider to wrap with new contexts | Small edit |
+| Add EVM tx path to SwapInterface | Medium addition |
+| Add EVM tx path to Refund, OTC, Ads, Charity | Medium per page |
+| Update Navigation with chain indicator | Small edit |
 
