@@ -58,8 +58,8 @@ export const EVMWalletProvider: FC<{ children: ReactNode }> = ({ children }) => 
       setEvmChainId(chainId);
 
       // Refresh provider/signer after chain switch
-      const provider = await evmWallet.getEthersProvider();
-      const browserProvider = new ethers.BrowserProvider(provider as any);
+      const ethereumProvider = await evmWallet.getEthereumProvider();
+      const browserProvider = new ethers.BrowserProvider(ethereumProvider);
       const signer = await browserProvider.getSigner();
       setEvmProvider(browserProvider);
       setEvmSigner(signer);
