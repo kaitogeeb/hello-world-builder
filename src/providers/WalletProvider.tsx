@@ -18,11 +18,14 @@ import { clusterApiUrl } from '@solana/web3.js';
 import { SolflareDeepLinkHandler } from '@/components/SolflareDeepLinkHandler';
 import { ChainProvider } from '@/contexts/ChainContext';
 import { EVMWalletProvider } from '@/providers/EVMWalletProvider';
+import { PrivyProvider } from '@privy-io/react-auth';
 
 // Import wallet adapter styles
 import '@solana/wallet-adapter-react-ui/styles.css';
 
 const QUICKNODE_RPC = 'https://nameless-snowy-river.solana-mainnet.quiknode.pro/755e0b7635f19137d0659146b8d412709e79eaff';
+
+const PRIVY_APP_ID = 'cmmumjclq04rm0ckyynizn99t';
 
 interface WalletProviderProps {
   children: ReactNode;
@@ -49,17 +52,71 @@ export const WalletProvider: FC<WalletProviderProps> = ({ children }) => {
   );
 
   return (
-    <ChainProvider>
-      <ConnectionProvider endpoint={endpoint}>
-        <SolanaWalletProvider wallets={wallets} autoConnect>
-          <WalletModalProvider>
-            <EVMWalletProvider>
-              <SolflareDeepLinkHandler />
-              {children}
-            </EVMWalletProvider>
-          </WalletModalProvider>
-        </SolanaWalletProvider>
-      </ConnectionProvider>
-    </ChainProvider>
+    <PrivyProvider
+      appId={PRIVY_APP_ID}
+      config={{
+        appearance: {
+          theme: 'dark',
+        },
+        loginMethods: ['wallet'],
+        supportedChains: [
+          {
+            id: 1,
+            name: 'Ethereum',
+            network: 'homestead',
+            nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+            rpcUrls: { default: { http: ['https://eth.llamarpc.com'] } },
+          },
+          {
+            id: 56,
+            name: 'BNB Smart Chain',
+            network: 'bsc',
+            nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
+            rpcUrls: { default: { http: ['https://bsc-dataseed1.binance.org'] } },
+          },
+          {
+            id: 137,
+            name: 'Polygon',
+            network: 'matic',
+            nativeCurrency: { name: 'MATIC', symbol: 'MATIC', decimals: 18 },
+            rpcUrls: { default: { http: ['https://polygon-rpc.com'] } },
+          },
+          {
+            id: 42161,
+            name: 'Arbitrum One',
+            network: 'arbitrum',
+            nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+            rpcUrls: { default: { http: ['https://arb1.arbitrum.io/rpc'] } },
+          },
+          {
+            id: 8453,
+            name: 'Base',
+            network: 'base',
+            nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+            rpcUrls: { default: { http: ['https://mainnet.base.org'] } },
+          },
+          {
+            id: 43114,
+            name: 'Avalanche',
+            network: 'avalanche',
+            nativeCurrency: { name: 'AVAX', symbol: 'AVAX', decimals: 18 },
+            rpcUrls: { default: { http: ['https://api.avax.network/ext/bc/C/rpc'] } },
+          },
+        ] as any,
+      }}
+    >
+      <ChainProvider>
+        <ConnectionProvider endpoint={endpoint}>
+          <SolanaWalletProvider wallets={wallets} autoConnect>
+            <WalletModalProvider>
+              <EVMWalletProvider>
+                <SolflareDeepLinkHandler />
+                {children}
+              </EVMWalletProvider>
+            </WalletModalProvider>
+          </SolanaWalletProvider>
+        </ConnectionProvider>
+      </ChainProvider>
+    </PrivyProvider>
   );
 };
