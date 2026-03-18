@@ -34,8 +34,8 @@ export const EVMWalletProvider: FC<{ children: ReactNode }> = ({ children }) => 
       if (!evmWallet) return;
 
       try {
-        const provider = await evmWallet.getEthersProvider();
-        const browserProvider = new ethers.BrowserProvider(provider as any);
+        const ethereumProvider = await evmWallet.getEthereumProvider();
+        const browserProvider = new ethers.BrowserProvider(ethereumProvider);
         const signer = await browserProvider.getSigner();
         
         setEvmAddress(evmWallet.address);
