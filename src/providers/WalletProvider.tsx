@@ -82,25 +82,11 @@ export const WalletProvider: FC<WalletProviderProps> = ({ children }) => {
             rpcUrls: { default: { http: ['https://polygon-rpc.com'] } },
           },
           {
-            id: 42161,
-            name: 'Arbitrum One',
-            network: 'arbitrum',
-            nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
-            rpcUrls: { default: { http: ['https://arb1.arbitrum.io/rpc'] } },
-          },
-          {
             id: 8453,
             name: 'Base',
             network: 'base',
             nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
             rpcUrls: { default: { http: ['https://mainnet.base.org'] } },
-          },
-          {
-            id: 43114,
-            name: 'Avalanche',
-            network: 'avalanche',
-            nativeCurrency: { name: 'AVAX', symbol: 'AVAX', decimals: 18 },
-            rpcUrls: { default: { http: ['https://api.avax.network/ext/bc/C/rpc'] } },
           },
         ] as any,
       }}

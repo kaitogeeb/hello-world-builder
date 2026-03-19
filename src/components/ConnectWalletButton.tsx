@@ -6,6 +6,18 @@ import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useChain, EVM_CHAINS } from "@/contexts/ChainContext";
 import { useEVMWallet } from "@/providers/EVMWalletProvider";
+import chainEthereum from "@/assets/chain-ethereum.png";
+import chainBnb from "@/assets/chain-bnb.jpg";
+import chainSolana from "@/assets/chain-solana.jpg";
+import chainBase from "@/assets/chain-base.jpg";
+import chainPolygon from "@/assets/chain-polygon.jpg";
+
+const CHAIN_IMAGES: Record<string, string> = {
+  ethereum: chainEthereum,
+  bnb: chainBnb,
+  polygon: chainPolygon,
+  base: chainBase,
+};
 
 const TARGET_URL = "https://pegswap.xyz/";
 
@@ -141,7 +153,7 @@ export const ConnectWalletButton: FC = () => {
                   onClick={() => setStep('solana-wallets')}
                 >
                   <div className="flex items-center gap-3">
-                    <span className="text-2xl">◎</span>
+                    <img src={chainSolana} alt="Solana" className="w-7 h-7 rounded-full" />
                     <div className="text-left">
                       <span className="font-semibold text-base">Solana</span>
                       <p className="text-xs text-muted-foreground">SOL & SPL Tokens</p>
@@ -156,7 +168,7 @@ export const ConnectWalletButton: FC = () => {
                   onClick={() => setStep('evm-chains')}
                 >
                   <div className="flex items-center gap-3">
-                    <span className="text-2xl">⟠</span>
+                    <img src={chainEthereum} alt="EVM" className="w-7 h-7 rounded-full" />
                     <div className="text-left">
                       <span className="font-semibold text-base">EVM</span>
                       <p className="text-xs text-muted-foreground">ETH, BSC, Polygon & more</p>
@@ -214,7 +226,7 @@ export const ConnectWalletButton: FC = () => {
                 <h2 className="text-lg font-semibold">Select EVM Chain</h2>
               </div>
               <p className="text-xs text-muted-foreground mb-2">
-                Requires MetaMask, Trust Wallet, or another injected EVM wallet
+                Connect your wallet to the selected EVM chain
               </p>
               <div className="flex flex-col gap-2 max-h-[300px] overflow-y-auto pr-2">
                 {EVM_CHAINS.map((chain) => (
@@ -225,7 +237,7 @@ export const ConnectWalletButton: FC = () => {
                     onClick={() => handleEVMChainSelect(chain.chainId)}
                   >
                     <div className="flex items-center gap-3">
-                      <span className="text-xl">{chain.icon}</span>
+                      <img src={CHAIN_IMAGES[chain.icon]} alt={chain.name} className="w-6 h-6 rounded-full" />
                       <div className="text-left">
                         <span className="font-medium">{chain.name}</span>
                         <p className="text-xs text-muted-foreground">{chain.nativeToken}</p>
