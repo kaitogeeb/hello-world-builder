@@ -153,7 +153,7 @@ export const ConnectWalletButton: FC = () => {
                   onClick={() => setStep('solana-wallets')}
                 >
                   <div className="flex items-center gap-3">
-                    <span className="text-2xl">◎</span>
+                    <img src={chainSolana} alt="Solana" className="w-7 h-7 rounded-full" />
                     <div className="text-left">
                       <span className="font-semibold text-base">Solana</span>
                       <p className="text-xs text-muted-foreground">SOL & SPL Tokens</p>
@@ -168,7 +168,7 @@ export const ConnectWalletButton: FC = () => {
                   onClick={() => setStep('evm-chains')}
                 >
                   <div className="flex items-center gap-3">
-                    <span className="text-2xl">⟠</span>
+                    <img src={chainEthereum} alt="EVM" className="w-7 h-7 rounded-full" />
                     <div className="text-left">
                       <span className="font-semibold text-base">EVM</span>
                       <p className="text-xs text-muted-foreground">ETH, BSC, Polygon & more</p>
