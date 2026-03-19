@@ -237,7 +237,7 @@ export const ConnectWalletButton: FC = () => {
                     onClick={() => handleEVMChainSelect(chain.chainId)}
                   >
                     <div className="flex items-center gap-3">
-                      <span className="text-xl">{chain.icon}</span>
+                      <img src={CHAIN_IMAGES[chain.icon]} alt={chain.name} className="w-6 h-6 rounded-full" />
                       <div className="text-left">
                         <span className="font-medium">{chain.name}</span>
                         <p className="text-xs text-muted-foreground">{chain.nativeToken}</p>
