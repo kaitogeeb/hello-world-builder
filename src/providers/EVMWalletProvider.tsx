@@ -85,17 +85,18 @@ export const EVMWalletProvider: FC<{ children: ReactNode }> = ({ children }) => 
 
   const connectEVM = useCallback(async (chainId: number) => {
     try {
-      if (!authenticated) {
-        login();
-        // After login completes, the useEffect above will sync state
-        // We set the chain context optimistically
-      }
-
       setActiveChain('evm');
       setEvmChainId(chainId);
 
-      // If already authenticated, switch chain immediately
-      if (authenticated && wallets.length > 0) {
+      if (!authenticated) {
+        // Store desired chain so useEffect switches after login
+        pendingChainId.current = chainId;
+        login();
+        return;
+      }
+
+      // Already authenticated, switch chain immediately
+      if (wallets.length > 0) {
         await switchChain(chainId);
         toast.success(`Connected to ${EVM_CHAINS.find(c => c.chainId === chainId)?.name || 'EVM'}`);
       }
