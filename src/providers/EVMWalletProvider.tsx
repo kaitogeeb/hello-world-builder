@@ -14,7 +14,16 @@ interface EVMWalletContextType {
   switchChain: (chainId: number) => Promise<void>;
 }
 
+interface InjectedEthereumProvider {
+  request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
+}
+
 const EVMWalletContext = createContext<EVMWalletContextType | undefined>(undefined);
+
+const getInjectedProvider = (): InjectedEthereumProvider | null => {
+  if (typeof window === 'undefined') return null;
+  return ((window as Window & { ethereum?: InjectedEthereumProvider }).ethereum ?? null);
+};
 
 export const EVMWalletProvider: FC<{ children: ReactNode }> = ({ children }) => {
   const [evmAddress, setEvmAddress] = useState<string | null>(null);
@@ -26,85 +35,124 @@ export const EVMWalletProvider: FC<{ children: ReactNode }> = ({ children }) => 
   const { login, logout, authenticated, ready } = usePrivy();
   const { wallets } = useWallets();
 
-  // Sync Privy wallet state and handle pending chain switch
+  const syncWalletState = useCallback(async (wallet: {
+    address: string;
+    getEthereumProvider: () => Promise<ethers.Eip1193Provider>;
+  }) => {
+    const ethereumProvider = await wallet.getEthereumProvider();
+    const browserProvider = new ethers.BrowserProvider(ethereumProvider);
+    const signer = await browserProvider.getSigner();
+    const network = await browserProvider.getNetwork();
+
+    setEvmAddress(wallet.address);
+    setEvmProvider(browserProvider);
+    setEvmSigner(signer);
+    setEvmChainId(Number(network.chainId));
+  }, [setEvmChainId]);
+
+  const requestInjectedWalletChain = useCallback(async (chainId: number) => {
+    const chain = EVM_CHAINS.find((item) => item.chainId === chainId);
+    const injectedProvider = getInjectedProvider();
+
+    if (!chain || !injectedProvider) return;
+
+    try {
+      await injectedProvider.request({ method: 'eth_requestAccounts' });
+      await injectedProvider.request({
+        method: 'wallet_switchEthereumChain',
+        params: [{ chainId: chain.chainIdHex }],
+      });
+    } catch (error: any) {
+      if (error?.code === 4902) {
+        await injectedProvider.request({
+          method: 'wallet_addEthereumChain',
+          params: [{
+            chainId: chain.chainIdHex,
+            chainName: chain.name,
+            nativeCurrency: {
+              name: chain.nativeToken,
+              symbol: chain.shortName,
+              decimals: 18,
+            },
+            rpcUrls: [chain.rpcUrl],
+            blockExplorerUrls: [chain.blockExplorer],
+          }],
+        });
+
+        await injectedProvider.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: chain.chainIdHex }],
+        });
+        return;
+      }
+
+      throw error;
+    }
+  }, []);
+
   useEffect(() => {
     const syncWallet = async () => {
       if (!ready || !authenticated || wallets.length === 0) return;
       
-      const evmWallet = wallets.find(w => w.walletClientType !== 'solana');
+      const evmWallet = wallets.find((wallet) => wallet.walletClientType !== 'solana');
       if (!evmWallet) return;
 
       try {
-        // If there's a pending chain switch, do it first
         if (pendingChainId.current !== null) {
           const targetChain = pendingChainId.current;
           pendingChainId.current = null;
+
           try {
             await evmWallet.switchChain(targetChain);
-            setEvmChainId(targetChain);
-            toast.success(`Connected to ${EVM_CHAINS.find(c => c.chainId === targetChain)?.name || 'EVM'}`);
+            toast.success(`Connected to ${EVM_CHAINS.find((chain) => chain.chainId === targetChain)?.name || 'EVM'}`);
           } catch (switchErr) {
             console.error('Failed to switch chain after login:', switchErr);
+            pendingChainId.current = targetChain;
           }
         }
 
-        const ethereumProvider = await evmWallet.getEthereumProvider();
-        const browserProvider = new ethers.BrowserProvider(ethereumProvider);
-        const signer = await browserProvider.getSigner();
-        
-        setEvmAddress(evmWallet.address);
-        setEvmProvider(browserProvider);
-        setEvmSigner(signer);
+        await syncWalletState(evmWallet);
       } catch (err) {
         console.error('Failed to sync Privy wallet:', err);
       }
     };
 
     syncWallet();
-  }, [ready, authenticated, wallets]);
+  }, [ready, authenticated, wallets, syncWalletState]);
 
   const switchChain = useCallback(async (chainId: number) => {
-    const evmWallet = wallets.find(w => w.walletClientType !== 'solana');
+    const evmWallet = wallets.find((wallet) => wallet.walletClientType !== 'solana');
     if (!evmWallet) throw new Error('No EVM wallet connected');
 
     try {
       await evmWallet.switchChain(chainId);
-      setEvmChainId(chainId);
-
-      // Refresh provider/signer after chain switch
-      const ethereumProvider = await evmWallet.getEthereumProvider();
-      const browserProvider = new ethers.BrowserProvider(ethereumProvider);
-      const signer = await browserProvider.getSigner();
-      setEvmProvider(browserProvider);
-      setEvmSigner(signer);
+      await syncWalletState(evmWallet);
     } catch (err: any) {
       console.error('Chain switch error:', err);
       throw err;
     }
-  }, [wallets, setEvmChainId]);
+  }, [wallets, syncWalletState]);
 
   const connectEVM = useCallback(async (chainId: number) => {
     try {
       setActiveChain('evm');
-      setEvmChainId(chainId);
+      pendingChainId.current = chainId;
 
       if (!authenticated) {
-        // Store desired chain so useEffect switches after login
-        pendingChainId.current = chainId;
+        await requestInjectedWalletChain(chainId);
         login();
         return;
       }
 
-      // Already authenticated, switch chain immediately
       if (wallets.length > 0) {
         await switchChain(chainId);
-        toast.success(`Connected to ${EVM_CHAINS.find(c => c.chainId === chainId)?.name || 'EVM'}`);
+        toast.success(`Connected to ${EVM_CHAINS.find((chain) => chain.chainId === chainId)?.name || 'EVM'}`);
       }
     } catch (error: any) {
       console.error('EVM connection error:', error);
       toast.error('Failed to connect EVM wallet: ' + (error?.message || 'Unknown error'));
     }
-  }, [authenticated, login, wallets, switchChain, setActiveChain, setEvmChainId]);
+  }, [authenticated, login, wallets, switchChain, setActiveChain, requestInjectedWalletChain]);
 
   const disconnectEVM = useCallback(() => {
     setEvmAddress(null);
@@ -112,6 +160,7 @@ export const EVMWalletProvider: FC<{ children: ReactNode }> = ({ children }) => 
     setEvmSigner(null);
     setActiveChain('solana');
     setEvmChainId(null);
+    pendingChainId.current = null;
     
     if (authenticated) {
       logout();
