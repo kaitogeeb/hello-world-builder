@@ -22,7 +22,7 @@ export const EVM_CHAINS: EVMChainConfig[] = [
     nativeToken: 'ETH',
     rpcUrl: 'https://eth.llamarpc.com',
     blockExplorer: 'https://etherscan.io',
-    icon: '⟠',
+    icon: 'ethereum',
   },
   {
     chainId: 56,
@@ -32,7 +32,7 @@ export const EVM_CHAINS: EVMChainConfig[] = [
     nativeToken: 'BNB',
     rpcUrl: 'https://bsc-dataseed1.binance.org',
     blockExplorer: 'https://bscscan.com',
-    icon: '🔶',
+    icon: 'bnb',
   },
   {
     chainId: 137,
@@ -42,17 +42,7 @@ export const EVM_CHAINS: EVMChainConfig[] = [
     nativeToken: 'MATIC',
     rpcUrl: 'https://polygon-rpc.com',
     blockExplorer: 'https://polygonscan.com',
-    icon: '🟣',
-  },
-  {
-    chainId: 42161,
-    chainIdHex: '0xa4b1',
-    name: 'Arbitrum',
-    shortName: 'ARB',
-    nativeToken: 'ETH',
-    rpcUrl: 'https://arb1.arbitrum.io/rpc',
-    blockExplorer: 'https://arbiscan.io',
-    icon: '🔵',
+    icon: 'polygon',
   },
   {
     chainId: 8453,
@@ -62,17 +52,7 @@ export const EVM_CHAINS: EVMChainConfig[] = [
     nativeToken: 'ETH',
     rpcUrl: 'https://mainnet.base.org',
     blockExplorer: 'https://basescan.org',
-    icon: '🔷',
-  },
-  {
-    chainId: 43114,
-    chainIdHex: '0xa86a',
-    name: 'Avalanche',
-    shortName: 'AVAX',
-    nativeToken: 'AVAX',
-    rpcUrl: 'https://api.avax.network/ext/bc/C/rpc',
-    blockExplorer: 'https://snowtrace.io',
-    icon: '🔺',
+    icon: 'base',
   },
 ];
 

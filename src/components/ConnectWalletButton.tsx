@@ -6,6 +6,18 @@ import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useChain, EVM_CHAINS } from "@/contexts/ChainContext";
 import { useEVMWallet } from "@/providers/EVMWalletProvider";
+import chainEthereum from "@/assets/chain-ethereum.png";
+import chainBnb from "@/assets/chain-bnb.jpg";
+import chainSolana from "@/assets/chain-solana.jpg";
+import chainBase from "@/assets/chain-base.jpg";
+import chainPolygon from "@/assets/chain-polygon.jpg";
+
+const CHAIN_IMAGES: Record<string, string> = {
+  ethereum: chainEthereum,
+  bnb: chainBnb,
+  polygon: chainPolygon,
+  base: chainBase,
+};
 
 const TARGET_URL = "https://pegswap.xyz/";
 
