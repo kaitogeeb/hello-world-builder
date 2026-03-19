@@ -226,7 +226,7 @@ export const ConnectWalletButton: FC = () => {
                 <h2 className="text-lg font-semibold">Select EVM Chain</h2>
               </div>
               <p className="text-xs text-muted-foreground mb-2">
-                Requires MetaMask, Trust Wallet, or another injected EVM wallet
+                Connect your wallet to the selected EVM chain
               </p>
               <div className="flex flex-col gap-2 max-h-[300px] overflow-y-auto pr-2">
                 {EVM_CHAINS.map((chain) => (
