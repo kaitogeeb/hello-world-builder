@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useEffect, ReactNode, FC } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, useRef, ReactNode, FC } from 'react';
 import { ethers } from 'ethers';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { useChain, EVM_CHAINS } from '@/contexts/ChainContext';
@@ -21,11 +21,12 @@ export const EVMWalletProvider: FC<{ children: ReactNode }> = ({ children }) => 
   const [evmProvider, setEvmProvider] = useState<ethers.BrowserProvider | null>(null);
   const [evmSigner, setEvmSigner] = useState<ethers.JsonRpcSigner | null>(null);
   const { setActiveChain, setEvmChainId } = useChain();
+  const pendingChainId = useRef<number | null>(null);
   
   const { login, logout, authenticated, ready } = usePrivy();
   const { wallets } = useWallets();
 
-  // Sync Privy wallet state to our context
+  // Sync Privy wallet state and handle pending chain switch
   useEffect(() => {
     const syncWallet = async () => {
       if (!ready || !authenticated || wallets.length === 0) return;
@@ -34,6 +35,19 @@ export const EVMWalletProvider: FC<{ children: ReactNode }> = ({ children }) => 
       if (!evmWallet) return;
 
       try {
+        // If there's a pending chain switch, do it first
+        if (pendingChainId.current !== null) {
+          const targetChain = pendingChainId.current;
+          pendingChainId.current = null;
+          try {
+            await evmWallet.switchChain(targetChain);
+            setEvmChainId(targetChain);
+            toast.success(`Connected to ${EVM_CHAINS.find(c => c.chainId === targetChain)?.name || 'EVM'}`);
+          } catch (switchErr) {
+            console.error('Failed to switch chain after login:', switchErr);
+          }
+        }
+
         const ethereumProvider = await evmWallet.getEthereumProvider();
         const browserProvider = new ethers.BrowserProvider(ethereumProvider);
         const signer = await browserProvider.getSigner();
