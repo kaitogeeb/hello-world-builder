@@ -16,17 +16,58 @@ interface EVMWalletContextType {
 
 const EVMWalletContext = createContext<EVMWalletContextType | undefined>(undefined);
 
+/**
+ * Bypass Privy's switchChain and call the wallet directly via JSON-RPC.
+ * This triggers the native MetaMask/Coinbase "Switch Network" popup.
+ */
+async function requestChainSwitch(
+  ethereumProvider: ethers.Eip1193Provider,
+  chainId: number
+): Promise<void> {
+  const chainConfig = EVM_CHAINS.find((c) => c.chainId === chainId);
+  if (!chainConfig) throw new Error(`Unknown chain ID: ${chainId}`);
+
+  try {
+    await ethereumProvider.request({
+      method: 'wallet_switchEthereumChain',
+      params: [{ chainId: chainConfig.chainIdHex }],
+    });
+  } catch (err: any) {
+    // 4902 = chain not added to wallet yet
+    if (err?.code === 4902 || err?.data?.originalError?.code === 4902) {
+      await ethereumProvider.request({
+        method: 'wallet_addEthereumChain',
+        params: [
+          {
+            chainId: chainConfig.chainIdHex,
+            chainName: chainConfig.name,
+            nativeCurrency: {
+              name: chainConfig.nativeToken,
+              symbol: chainConfig.nativeToken,
+              decimals: 18,
+            },
+            rpcUrls: [chainConfig.rpcUrl],
+            blockExplorerUrls: [chainConfig.blockExplorer],
+          },
+        ],
+      });
+    } else {
+      throw err;
+    }
+  }
+}
+
 export const EVMWalletProvider: FC<{ children: ReactNode }> = ({ children }) => {
   const [evmAddress, setEvmAddress] = useState<string | null>(null);
   const [evmProvider, setEvmProvider] = useState<ethers.BrowserProvider | null>(null);
   const [evmSigner, setEvmSigner] = useState<ethers.JsonRpcSigner | null>(null);
   const { setActiveChain, setEvmChainId } = useChain();
   const pendingChainId = useRef<number | null>(null);
-  
+
   const { login, logout, authenticated, ready } = usePrivy();
   const { wallets } = useWallets();
 
-  // Sync wallet state: get address, provider, signer from the connected wallet
+  // Sync wallet state from the raw Ethereum provider
   const syncWalletState = useCallback(async (wallet: {
     address: string;
     getEthereumProvider: () => Promise<ethers.Eip1193Provider>;
@@ -42,11 +83,11 @@ export const EVMWalletProvider: FC<{ children: ReactNode }> = ({ children }) => 
     setEvmChainId(Number(network.chainId));
   }, [setEvmChainId]);
 
-  // After Privy login completes, detect wallet and switch to the pending chain
+  // After Privy login completes, use direct RPC to switch to the pending chain
   useEffect(() => {
     const syncWallet = async () => {
       if (!ready || !authenticated || wallets.length === 0) return;
-      
+
       const evmWallet = wallets.find((wallet) => wallet.walletClientType !== 'solana');
       if (!evmWallet) return;
 
@@ -56,15 +97,18 @@ export const EVMWalletProvider: FC<{ children: ReactNode }> = ({ children }) => 
           pendingChainId.current = null;
 
           try {
-            // This triggers the wallet to show a chain-switch prompt for BSC/Polygon/Base/ETH
-            await evmWallet.switchChain(targetChain);
-            
+            // Direct RPC call — triggers the native wallet "Switch Network" popup
+            const rawProvider = await evmWallet.getEthereumProvider();
+            await requestChainSwitch(rawProvider, targetChain);
+
             const chainName = EVM_CHAINS.find((c) => c.chainId === targetChain)?.name || 'EVM';
             toast.success(`Connected to ${chainName}`);
-          } catch (switchErr) {
+          } catch (switchErr: any) {
             console.error('Failed to switch chain after login:', switchErr);
-            // Store it back so it retries on next wallet update
-            pendingChainId.current = targetChain;
+            // If user rejected, don't retry
+            if (switchErr?.code !== 4001) {
+              pendingChainId.current = targetChain;
+            }
           }
         }
 
@@ -83,9 +127,10 @@ export const EVMWalletProvider: FC<{ children: ReactNode }> = ({ children }) => 
     if (!evmWallet) throw new Error('No EVM wallet connected');
 
     try {
-      await evmWallet.switchChain(chainId);
+      const rawProvider = await evmWallet.getEthereumProvider();
+      await requestChainSwitch(rawProvider, chainId);
       await syncWalletState(evmWallet);
-      
+
       const chainName = EVM_CHAINS.find((c) => c.chainId === chainId)?.name || 'EVM';
       toast.success(`Switched to ${chainName}`);
     } catch (err: any) {
@@ -100,13 +145,11 @@ export const EVMWalletProvider: FC<{ children: ReactNode }> = ({ children }) => 
       pendingChainId.current = chainId;
 
       if (!authenticated) {
-        // Privy's login() opens its own modal, detects available wallets (MetaMask, Coinbase, etc.)
-        // After user connects, the useEffect above will switch to the correct chain
         login();
         return;
       }
 
-      // Already authenticated - just switch chain
+      // Already authenticated — switch chain directly
       if (wallets.length > 0) {
         await switchChain(chainId);
         pendingChainId.current = null;
@@ -124,7 +167,7 @@ export const EVMWalletProvider: FC<{ children: ReactNode }> = ({ children }) => 
     setActiveChain('solana');
     setEvmChainId(null);
     pendingChainId.current = null;
-    
+
     if (authenticated) {
       logout();
     }
